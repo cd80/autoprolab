@@ -5,6 +5,7 @@ import NetworkTopology from "@/components/network-topology";
 import AgentModal from "@/components/agent-modal";
 import TargetModal from "@/components/target-modal";
 import TeamHierarchy from "@/components/team-hierarchy";
+import ADVisualization from "@/components/ad-visualization";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -22,7 +23,7 @@ import {
 import { formatRelativeTime, getStatusColor } from "@/lib/utils";
 import type { Agent, Target, Activity as ActivityType, HtbLab } from "@shared/schema";
 
-type TabType = "dashboard" | "agents" | "topology" | "targets" | "tools" | "htb";
+type TabType = "dashboard" | "agents" | "topology" | "targets" | "tools" | "htb" | "ad";
 
 export default function Dashboard() {
   const [activeTab, setActiveTab] = useState<TabType>("dashboard");
@@ -73,7 +74,8 @@ export default function Dashboard() {
     topology: { title: 'Network Topology', subtitle: 'Visualize target network infrastructure' },
     targets: { title: 'Target Analysis', subtitle: 'Detailed target information and attack vectors' },
     tools: { title: 'Tool Registry', subtitle: 'Manage MCP servers and custom tools' },
-    htb: { title: 'HTB Progress', subtitle: 'Track Hack The Box Pro Lab progress and flags' }
+    htb: { title: 'HTB Progress', subtitle: 'Track Hack The Box Pro Lab progress and flags' },
+    ad: { title: 'Active Directory', subtitle: 'Visualize AD environment and domain structure' }
   };
 
   const handleTargetClick = (target: Target) => {
@@ -478,6 +480,9 @@ export default function Dashboard() {
 
   const renderHTB = () => (
     <div className="p-6 space-y-6">
+      {/* Pro Lab Selection */}
+      <ProLabSelection activeHtbLab={activeHtbLab} />
+      
       {/* Lab Overview */}
       {activeHtbLab ? (
         <Card>
@@ -506,15 +511,7 @@ export default function Dashboard() {
             <Progress value={activeHtbLab.completionPercentage} className="h-2" />
           </CardContent>
         </Card>
-      ) : (
-        <Card>
-          <CardContent className="text-center py-12">
-            <Flag className="w-12 h-12 text-slate-400 mx-auto mb-4" />
-            <p className="text-slate-400">No active HTB Pro Lab</p>
-            <p className="text-sm text-slate-500">Connect to a lab to track progress</p>
-          </CardContent>
-        </Card>
-      )}
+      ) : null}
 
       {/* Flag Progress */}
       <Card>
@@ -606,6 +603,7 @@ export default function Dashboard() {
           {activeTab === "targets" && renderTargets()}
           {activeTab === "tools" && renderTools()}
           {activeTab === "htb" && renderHTB()}
+          {activeTab === "ad" && <ADVisualization />}
         </main>
       </div>
 
