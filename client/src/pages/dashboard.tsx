@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import Sidebar from "@/components/sidebar";
+import Header from "@/components/layout/header";
+import StatusBar from "@/components/layout/status-bar";
 import NetworkTopology from "@/components/network-topology";
 import AgentModal from "@/components/agent-modal";
 import TargetModal from "@/components/target-modal";
