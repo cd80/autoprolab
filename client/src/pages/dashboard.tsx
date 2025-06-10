@@ -1,8 +1,6 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import Sidebar from "@/components/sidebar";
-import Header from "@/components/layout/header";
-import StatusBar from "@/components/layout/status-bar";
 import NetworkTopology from "@/components/network-topology";
 import AgentModal from "@/components/agent-modal";
 import TargetModal from "@/components/target-modal";
@@ -398,10 +396,8 @@ export default function Dashboard() {
   );
 
   return (
-    <div className="min-h-screen bg-slate-950 text-white flex flex-col">
-      <Header activeHtbLab={activeHtbLab} />
-      
-      <div className="flex flex-1 overflow-hidden">
+    <div className="min-h-screen bg-slate-950 text-white">
+      <div className="flex h-screen">
         <Sidebar 
           activeTab={activeTab} 
           setActiveTab={(tab: string) => setActiveTab(tab as TabType)}
@@ -421,8 +417,6 @@ export default function Dashboard() {
           </div>
         </main>
       </div>
-      
-      <StatusBar metrics={metrics} />
 
       {/* Modals */}
       <AgentModal 
