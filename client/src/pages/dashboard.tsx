@@ -16,7 +16,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Progress } from "@/components/ui/progress";
 import { 
   Activity, BarChart3, Bot, Crosshair, Flag, Plus, RefreshCw, 
-  Search, Shield, Target, Bolt, Download, Bug, ArrowsUpFromLine,
+  Search, Shield, Target as TargetIcon, Bolt, Download, Bug, ArrowsUpFromLine,
   Anchor, Server, Globe, Database, Save
 } from "lucide-react";
 import { formatRelativeTime, getStatusColor } from "@/lib/utils";
@@ -318,7 +318,7 @@ export default function Dashboard() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {targets.length === 0 ? (
           <div className="col-span-full text-center py-12">
-            <Target className="w-12 h-12 text-slate-400 mx-auto mb-4" />
+            <TargetIcon className="w-12 h-12 text-slate-400 mx-auto mb-4" />
             <p className="text-slate-400">No targets available</p>
             <p className="text-sm text-slate-500">Add your first target to begin analysis</p>
           </div>

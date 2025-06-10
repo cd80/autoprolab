@@ -237,6 +237,9 @@ export class MemStorage implements IStorage {
     const agent: Agent = {
       ...insertAgent,
       id: this.agentId++,
+      tools: insertAgent.tools || [],
+      status: insertAgent.status || "inactive",
+      teamId: insertAgent.teamId || null,
       createdAt: new Date(),
     };
     this.agents.set(agent.id, agent);
@@ -269,6 +272,8 @@ export class MemStorage implements IStorage {
     const team: Team = {
       ...insertTeam,
       id: this.teamId++,
+      description: insertTeam.description || null,
+      parentTeamId: insertTeam.parentTeamId || null,
       createdAt: new Date(),
     };
     this.teams.set(team.id, team);
@@ -305,6 +310,13 @@ export class MemStorage implements IStorage {
     const target: Target = {
       ...insertTarget,
       id: this.targetId++,
+      status: insertTarget.status || "target",
+      operatingSystem: insertTarget.operatingSystem || null,
+      openPorts: insertTarget.openPorts || null,
+      vulnerabilities: insertTarget.vulnerabilities || null,
+      flags: insertTarget.flags || null,
+      networkSegment: insertTarget.networkSegment || null,
+      assignedAgentId: insertTarget.assignedAgentId || null,
       createdAt: new Date(),
     };
     this.targets.set(target.id, target);
@@ -337,6 +349,8 @@ export class MemStorage implements IStorage {
     const server: McpServer = {
       ...insertServer,
       id: this.mcpServerId++,
+      tools: insertServer.tools || null,
+      status: insertServer.status || "offline",
       createdAt: new Date(),
     };
     this.mcpServers.set(server.id, server);
@@ -369,6 +383,8 @@ export class MemStorage implements IStorage {
     const tool: CustomTool = {
       ...insertTool,
       id: this.customToolId++,
+      status: insertTool.status || "active",
+      code: insertTool.code || null,
       createdAt: new Date(),
     };
     this.customTools.set(tool.id, tool);
@@ -401,6 +417,12 @@ export class MemStorage implements IStorage {
     const lab: HtbLab = {
       ...insertLab,
       id: this.htbLabId++,
+      status: insertLab.status || "inactive",
+      totalFlags: insertLab.totalFlags || 0,
+      capturedFlags: insertLab.capturedFlags || 0,
+      completionPercentage: insertLab.completionPercentage || 0,
+      startedAt: insertLab.startedAt || null,
+      completedAt: insertLab.completedAt || null,
     };
     this.htbLabs.set(lab.id, lab);
     return lab;
@@ -431,6 +453,10 @@ export class MemStorage implements IStorage {
     const activity: Activity = {
       ...insertActivity,
       id: this.activityId++,
+      status: insertActivity.status || "in-progress",
+      agentId: insertActivity.agentId || null,
+      targetId: insertActivity.targetId || null,
+      result: insertActivity.result || null,
       createdAt: new Date(),
     };
     this.activities.set(activity.id, activity);
