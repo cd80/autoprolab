@@ -256,58 +256,63 @@ export default function Dashboard() {
               <form className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <Label>Agent Name</Label>
-                    <Input placeholder="Enter agent name" value={selectedAgent?.name || ""} />
+                    <Label className="text-white">Agent Name</Label>
+                    <Input 
+                      placeholder="Enter agent name" 
+                      defaultValue={selectedAgent?.name || ""} 
+                      className="bg-slate-800 border-slate-600 text-white placeholder-slate-400"
+                    />
                   </div>
                   <div>
-                    <Label>Agent Type</Label>
-                    <Select value={selectedAgent?.type || ""}>
-                      <SelectTrigger>
+                    <Label className="text-white">Agent Type</Label>
+                    <Select defaultValue={selectedAgent?.type || ""}>
+                      <SelectTrigger className="bg-slate-800 border-slate-600 text-white">
                         <SelectValue placeholder="Select agent type" />
                       </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="recon">Reconnaissance</SelectItem>
-                        <SelectItem value="exploit">Exploitation</SelectItem>
-                        <SelectItem value="persistence">Persistence</SelectItem>
-                        <SelectItem value="lateral">Lateral Movement</SelectItem>
+                      <SelectContent className="bg-slate-800 border-slate-600">
+                        <SelectItem value="recon" className="text-white">Reconnaissance</SelectItem>
+                        <SelectItem value="exploit" className="text-white">Exploitation</SelectItem>
+                        <SelectItem value="persistence" className="text-white">Persistence</SelectItem>
+                        <SelectItem value="lateral" className="text-white">Lateral Movement</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
                 </div>
                 <div>
-                  <Label>Description</Label>
+                  <Label className="text-white">Description</Label>
                   <Textarea 
                     placeholder="Describe the agent's purpose and capabilities" 
-                    value={selectedAgent?.description || ""}
-                    className="h-20"
+                    defaultValue={selectedAgent?.description || ""}
+                    className="h-20 bg-slate-800 border-slate-600 text-white placeholder-slate-400"
                   />
                 </div>
                 <div>
-                  <Label>Instructions</Label>
+                  <Label className="text-white">Instructions</Label>
                   <Textarea 
                     placeholder="Detailed instructions for the agent" 
-                    value={selectedAgent?.instructions || ""}
-                    className="h-24"
+                    defaultValue={selectedAgent?.instructions || ""}
+                    className="h-24 bg-slate-800 border-slate-600 text-white placeholder-slate-400"
                   />
                 </div>
                 <div>
-                  <Label>Expected Output</Label>
+                  <Label className="text-white">Expected Output</Label>
                   <Textarea 
                     placeholder="Define the expected output format" 
-                    value={selectedAgent?.expectedOutput || ""}
-                    className="h-20"
+                    defaultValue={selectedAgent?.expectedOutput || ""}
+                    className="h-20 bg-slate-800 border-slate-600 text-white placeholder-slate-400"
                   />
                 </div>
                 <div>
-                  <Label>Available Bolt</Label>
+                  <Label className="text-white">Available Tools</Label>
                   <div className="grid grid-cols-2 md:grid-cols-3 gap-2 mt-2">
                     {['nmap', 'gobuster', 'sqlmap', 'nuclei', 'metasploit', 'burpsuite'].map((tool) => (
                       <div key={tool} className="flex items-center space-x-2">
                         <Checkbox 
                           id={tool} 
                           checked={selectedAgent?.tools?.includes(tool) || false}
+                          className="border-slate-600"
                         />
-                        <Label htmlFor={tool} className="text-sm">{tool}</Label>
+                        <Label htmlFor={tool} className="text-sm text-white">{tool}</Label>
                       </div>
                     ))}
                   </div>
