@@ -191,7 +191,7 @@ export class HtbOperatorService {
 
   private async startVpnConnection(): Promise<void> {
     try {
-      const { stdout: vpnList } = await execAsync('htb-operator vpn list', {
+      const { stdout: vpnList } = await execAsync('htb-operator vpn list --prolabs', {
         env: { ...process.env, HTB_API_KEY: this.htbApiKey }
       });
       

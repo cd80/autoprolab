@@ -98,7 +98,7 @@ class HtbAptlabsAgent(Agent):
                     "status": status_result
                 }
             
-            vpn_list = await self._run_htb_command("vpn list")
+            vpn_list = await self._run_htb_command("vpn list --prolabs")
             
             start_result = await self._run_htb_command("vpn start")
             
