@@ -1,6 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
+import { htbOperator } from "./htb-integration";
 import { 
   insertAgentSchema, insertTeamSchema, insertTargetSchema, 
   insertMcpServerSchema, insertCustomToolSchema, insertHtbLabSchema,
@@ -462,54 +463,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // HTB Operator Integration
   app.get("/api/htb-operator/labs", async (req, res) => {
     try {
-      // Mock Pro Labs data for demo - in production, this would call htb-operator
-      const proLabs = [
-        {
-          id: "offshore",
-          name: "Offshore",
-          difficulty: "Hard",
-          machines: 12,
-          flags: 24,
-          description: "A challenging infrastructure penetration testing lab with multiple network segments.",
-          estimatedTime: "40-60 hours",
-          userProgress: {
-            capturedFlags: 8,
-            completionPercentage: 33,
-            isActive: false
-          }
-        },
-        {
-          id: "rastalabs",
-          name: "RastaLabs", 
-          difficulty: "Insane",
-          machines: 15,
-          flags: 30,
-          description: "Advanced Windows-focused lab featuring complex Active Directory environments.",
-          estimatedTime: "60-80 hours",
-          userProgress: {
-            capturedFlags: 0,
-            completionPercentage: 0,
-            isActive: false
-          }
-        },
-        {
-          id: "cybernetics",
-          name: "Cybernetics",
-          difficulty: "Medium",
-          machines: 8,
-          flags: 16,
-          description: "Modern enterprise network simulation with cloud infrastructure components.",
-          estimatedTime: "30-40 hours",
-          userProgress: {
-            capturedFlags: 16,
-            completionPercentage: 100,
-            isActive: false
-          }
+      const htbLabs = await htbOperator.getAvailableLabs();
+      
+      const proLabs = htbLabs.map(lab => ({
+        id: lab.id,
+        name: lab.name,
+        difficulty: lab.difficulty,
+        machines: lab.machines.length,
+        flags: lab.machines.length * 2, // Estimate 2 flags per machine
+        description: lab.description,
+        estimatedTime: lab.difficulty === "Expert" ? "60-80 hours" : 
+                      lab.difficulty === "Hard" ? "40-60 hours" : "30-40 hours",
+        userProgress: {
+          capturedFlags: 0,
+          completionPercentage: 0,
+          isActive: lab.status === 'active'
         }
-      ];
+      }));
 
       res.json(proLabs);
     } catch (error) {
+      console.error("Failed to fetch Pro Labs from htb-operator:", error);
       res.status(500).json({ error: "Failed to fetch Pro Labs from htb-operator" });
     }
   });
@@ -518,26 +492,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { labId } = req.params;
       
-      // Mock htb-operator integration - in production, this would start the lab
       console.log(`Starting HTB Pro Lab: ${labId}`);
       
-      // Create or update HTB lab record
-      const labData = {
-        name: labId === "offshore" ? "Offshore" : labId === "rastalabs" ? "RastaLabs" : "Cybernetics",
-        status: "active" as const,
-        capturedFlags: 0,
-        totalFlags: labId === "offshore" ? 24 : labId === "rastalabs" ? 30 : 16,
-        completionPercentage: 0,
-        startedAt: new Date(),
-      };
-
-      const htbLab = await storage.createHtbLab(labData);
+      const result = await htbOperator.startLab(labId);
       
-      res.json({
-        success: true,
-        message: `Pro Lab ${labData.name} started successfully`,
-        lab: htbLab
-      });
+      if (result.success && result.lab) {
+        // Create or update HTB lab record in storage
+        const labData = {
+          name: result.lab.name,
+          status: "active" as const,
+          capturedFlags: 0,
+          totalFlags: result.lab.machines.length * 2, // Estimate 2 flags per machine
+          completionPercentage: 0,
+          startedAt: new Date(),
+        };
+
+        const htbLab = await storage.createHtbLab(labData);
+        
+        res.json({
+          success: true,
+          message: result.message,
+          lab: htbLab
+        });
+      } else {
+        res.status(500).json({ 
+          success: false,
+          error: result.message || "Failed to start Pro Lab" 
+        });
+      }
     } catch (error) {
       console.error("Failed to start HTB lab:", error);
       res.status(500).json({ error: "Failed to start Pro Lab" });
@@ -546,13 +528,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/htb-operator/labs/stop", async (req, res) => {
     try {
-      // Mock htb-operator integration - in production, this would stop the active lab
       console.log("Stopping active HTB Pro Lab");
       
-      res.json({
-        success: true,
-        message: "Pro Lab stopped successfully"
-      });
+      const result = await htbOperator.stopLab();
+      
+      if (result.success) {
+        const activeLab = await storage.getActiveHtbLab();
+        if (activeLab) {
+          await storage.updateHtbLab(activeLab.id, { 
+            status: "inactive" as const
+          });
+        }
+        
+        res.json({
+          success: true,
+          message: result.message
+        });
+      } else {
+        res.status(500).json({ 
+          success: false,
+          error: result.message || "Failed to stop Pro Lab" 
+        });
+      }
     } catch (error) {
       console.error("Failed to stop HTB lab:", error);
       res.status(500).json({ error: "Failed to stop Pro Lab" });
