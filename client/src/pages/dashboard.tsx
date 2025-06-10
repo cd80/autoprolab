@@ -6,6 +6,7 @@ import AgentModal from "@/components/agent-modal";
 import TargetModal from "@/components/target-modal";
 import TeamHierarchy from "@/components/team-hierarchy";
 import ADVisualization from "@/components/ad-visualization";
+import ProLabSelection from "@/components/pro-lab-selection";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
