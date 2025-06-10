@@ -32,7 +32,14 @@ export default function Dashboard() {
   const [selectedAgent, setSelectedAgent] = useState<Agent | null>(null);
 
   // Queries
-  const { data: metrics } = useQuery({
+  const { data: metrics } = useQuery<{
+    activeAgents: number;
+    compromisedHosts: number;
+    flagsCaptured: string;
+    mcpTools: number;
+    targetCount: number;
+    labProgress: string;
+  }>({
     queryKey: ["/api/dashboard/metrics"],
   });
 
@@ -52,11 +59,11 @@ export default function Dashboard() {
     queryKey: ["/api/htb-labs/active"],
   });
 
-  const { data: mcpServers = [] } = useQuery({
+  const { data: mcpServers = [] } = useQuery<any[]>({
     queryKey: ["/api/mcp-servers"],
   });
 
-  const { data: customTools = [] } = useQuery({
+  const { data: customTools = [] } = useQuery<any[]>({
     queryKey: ["/api/custom-tools"],
   });
 
@@ -560,7 +567,7 @@ export default function Dashboard() {
     <div className="flex h-screen overflow-hidden bg-slate-900">
       <Sidebar 
         activeTab={activeTab} 
-        setActiveTab={setActiveTab}
+        setActiveTab={(tab: string) => setActiveTab(tab as TabType)}
         metrics={metrics}
         onCreateAgent={() => setShowAgentModal(true)}
       />

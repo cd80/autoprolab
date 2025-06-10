@@ -448,7 +448,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         activeAgents: agents.filter(a => a.status === "active").length,
         compromisedHosts: targets.filter(t => t.status === "compromised").length,
         flagsCaptured: activeHtbLab ? `${activeHtbLab.capturedFlags}/${activeHtbLab.totalFlags}` : "0/0",
-        mcpTools: mcpServers.reduce((total, server) => total + server.tools.length, 0),
+        mcpTools: mcpServers.reduce((total, server) => total + (server.tools?.length || 0), 0),
         targetCount: targets.length,
         labProgress: activeHtbLab ? `${activeHtbLab.completionPercentage}%` : "0%"
       };
