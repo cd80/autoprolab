@@ -1,4 +1,4 @@
-import { Shield, BarChart3, Bot, Target, Bolt, Flag } from "lucide-react";
+import { Shield, BarChart3, Bot, Target, Wrench, Flag, Network } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface SidebarProps {
@@ -14,8 +14,9 @@ export default function Sidebar({ activeTab, setActiveTab, metrics, onCreateAgen
     { id: "agents", label: "Agent Management", icon: Bot },
     { id: "topology", label: "Network Topology", icon: Target },
     { id: "targets", label: "Target Analysis", icon: Target },
-    { id: "tools", label: "Tool Registry", icon: Bolt },
+    { id: "tools", label: "Tool Registry", icon: Wrench },
     { id: "htb", label: "HTB Progress", icon: Flag },
+    { id: "ad", label: "Active Directory", icon: Network },
   ];
 
   return (

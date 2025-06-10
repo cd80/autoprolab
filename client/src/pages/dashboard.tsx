@@ -18,7 +18,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Progress } from "@/components/ui/progress";
 import { 
   Activity, BarChart3, Bot, Crosshair, Flag, Plus, RefreshCw, 
-  Search, Shield, Target as TargetIcon, Bolt, Download, Bug, ArrowsUpFromLine,
+  Search, Shield, Target as TargetIcon, Wrench, Download, Bug, ArrowsUpFromLine,
   Anchor, Server, Globe, Database, Save
 } from "lucide-react";
 import { formatRelativeTime, getStatusColor } from "@/lib/utils";
@@ -146,11 +146,11 @@ export default function Dashboard() {
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-slate-400">MCP Bolt</p>
+                <p className="text-sm text-slate-400">MCP Tools</p>
                 <p className="text-2xl font-bold text-white">{metrics?.mcpTools || 0}</p>
               </div>
               <div className="w-12 h-12 bg-purple-500/20 rounded-xl flex items-center justify-center">
-                <Bolt className="text-purple-400 text-xl" />
+                <Wrench className="text-purple-400 text-xl" />
               </div>
             </div>
             <div className="mt-4 flex items-center text-sm">
@@ -440,10 +440,10 @@ export default function Dashboard() {
           </CardContent>
         </Card>
 
-        {/* Custom Bolt */}
+        {/* Custom Tools */}
         <Card>
           <CardHeader>
-            <CardTitle>Custom Bolt</CardTitle>
+            <CardTitle>Custom Tools</CardTitle>
             <Button size="sm" className="btn-primary">
               <Plus className="w-3 h-3" />
               Add Tool
