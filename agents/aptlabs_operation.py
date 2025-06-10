@@ -224,7 +224,7 @@ class AptlabsOperationAgent(Agent):
     async def _connect_vpn(self) -> Dict:
         """Connect to APTLabs VPN."""
         try:
-            cmd = ["htb-operator", "prolabs", "vpn", "--name", self.aptlabs_config["prolab_name"]]
+            cmd = ["htb-operator", "vpn", "start", "--id", "309"]
             
             process = await asyncio.create_subprocess_exec(
                 *cmd,

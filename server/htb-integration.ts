@@ -195,7 +195,7 @@ export class HtbOperatorService {
         env: { ...process.env, HTB_API_KEY: this.htbApiKey }
       });
       
-      await execAsync('htb-operator vpn start', {
+      await execAsync('htb-operator vpn start --id 309', {
         env: { ...process.env, HTB_API_KEY: this.htbApiKey }
       });
       

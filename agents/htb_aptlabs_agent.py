@@ -100,7 +100,7 @@ class HtbAptlabsAgent(Agent):
             
             vpn_list = await self._run_htb_command("vpn list --prolabs")
             
-            start_result = await self._run_htb_command("vpn start")
+            start_result = await self._run_htb_command("vpn start --id 309")
             
             await asyncio.sleep(10)
             
