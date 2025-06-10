@@ -6,8 +6,11 @@ import {
   CustomTool, InsertCustomTool,
   HtbLab, InsertHtbLab,
   Activity, InsertActivity,
-  NetworkNode, NetworkLink
+  NetworkNode, NetworkLink,
+  agents, teams, targets, mcpServers, customTools, htbLabs, activities
 } from "@shared/schema";
+import { db } from "./db";
+import { eq } from "drizzle-orm";
 
 export interface IStorage {
   // Agents
@@ -473,4 +476,225 @@ export class MemStorage implements IStorage {
   }
 }
 
-export const storage = new MemStorage();
+export class DatabaseStorage implements IStorage {
+  // Agents
+  async getAgents(): Promise<Agent[]> {
+    return await db.select().from(agents);
+  }
+
+  async getAgent(id: number): Promise<Agent | undefined> {
+    const [agent] = await db.select().from(agents).where(eq(agents.id, id));
+    return agent || undefined;
+  }
+
+  async createAgent(insertAgent: InsertAgent): Promise<Agent> {
+    const [agent] = await db
+      .insert(agents)
+      .values(insertAgent)
+      .returning();
+    return agent;
+  }
+
+  async updateAgent(id: number, agent: Partial<InsertAgent>): Promise<Agent | undefined> {
+    const [updated] = await db
+      .update(agents)
+      .set(agent)
+      .where(eq(agents.id, id))
+      .returning();
+    return updated || undefined;
+  }
+
+  async deleteAgent(id: number): Promise<boolean> {
+    const result = await db.delete(agents).where(eq(agents.id, id));
+    return (result.rowCount ?? 0) > 0;
+  }
+
+  // Teams
+  async getTeams(): Promise<Team[]> {
+    return await db.select().from(teams);
+  }
+
+  async getTeam(id: number): Promise<Team | undefined> {
+    const [team] = await db.select().from(teams).where(eq(teams.id, id));
+    return team || undefined;
+  }
+
+  async createTeam(insertTeam: InsertTeam): Promise<Team> {
+    const [team] = await db
+      .insert(teams)
+      .values(insertTeam)
+      .returning();
+    return team;
+  }
+
+  async updateTeam(id: number, team: Partial<InsertTeam>): Promise<Team | undefined> {
+    const [updated] = await db
+      .update(teams)
+      .set(team)
+      .where(eq(teams.id, id))
+      .returning();
+    return updated || undefined;
+  }
+
+  async deleteTeam(id: number): Promise<boolean> {
+    const result = await db.delete(teams).where(eq(teams.id, id));
+    return (result.rowCount ?? 0) > 0;
+  }
+
+  async getTeamHierarchy(): Promise<Team[]> {
+    return await db.select().from(teams);
+  }
+
+  // Targets
+  async getTargets(): Promise<Target[]> {
+    return await db.select().from(targets);
+  }
+
+  async getTarget(id: number): Promise<Target | undefined> {
+    const [target] = await db.select().from(targets).where(eq(targets.id, id));
+    return target || undefined;
+  }
+
+  async createTarget(insertTarget: InsertTarget): Promise<Target> {
+    const [target] = await db
+      .insert(targets)
+      .values(insertTarget)
+      .returning();
+    return target;
+  }
+
+  async updateTarget(id: number, target: Partial<InsertTarget>): Promise<Target | undefined> {
+    const [updated] = await db
+      .update(targets)
+      .set(target)
+      .where(eq(targets.id, id))
+      .returning();
+    return updated || undefined;
+  }
+
+  async deleteTarget(id: number): Promise<boolean> {
+    const result = await db.delete(targets).where(eq(targets.id, id));
+    return result.rowCount > 0;
+  }
+
+  // MCP Servers
+  async getMcpServers(): Promise<McpServer[]> {
+    return await db.select().from(mcpServers);
+  }
+
+  async getMcpServer(id: number): Promise<McpServer | undefined> {
+    const [server] = await db.select().from(mcpServers).where(eq(mcpServers.id, id));
+    return server || undefined;
+  }
+
+  async createMcpServer(insertServer: InsertMcpServer): Promise<McpServer> {
+    const [server] = await db
+      .insert(mcpServers)
+      .values(insertServer)
+      .returning();
+    return server;
+  }
+
+  async updateMcpServer(id: number, server: Partial<InsertMcpServer>): Promise<McpServer | undefined> {
+    const [updated] = await db
+      .update(mcpServers)
+      .set(server)
+      .where(eq(mcpServers.id, id))
+      .returning();
+    return updated || undefined;
+  }
+
+  async deleteMcpServer(id: number): Promise<boolean> {
+    const result = await db.delete(mcpServers).where(eq(mcpServers.id, id));
+    return result.rowCount > 0;
+  }
+
+  // Custom Tools
+  async getCustomTools(): Promise<CustomTool[]> {
+    return await db.select().from(customTools);
+  }
+
+  async getCustomTool(id: number): Promise<CustomTool | undefined> {
+    const [tool] = await db.select().from(customTools).where(eq(customTools.id, id));
+    return tool || undefined;
+  }
+
+  async createCustomTool(insertTool: InsertCustomTool): Promise<CustomTool> {
+    const [tool] = await db
+      .insert(customTools)
+      .values(insertTool)
+      .returning();
+    return tool;
+  }
+
+  async updateCustomTool(id: number, tool: Partial<InsertCustomTool>): Promise<CustomTool | undefined> {
+    const [updated] = await db
+      .update(customTools)
+      .set(tool)
+      .where(eq(customTools.id, id))
+      .returning();
+    return updated || undefined;
+  }
+
+  async deleteCustomTool(id: number): Promise<boolean> {
+    const result = await db.delete(customTools).where(eq(customTools.id, id));
+    return result.rowCount > 0;
+  }
+
+  // HTB Labs
+  async getHtbLabs(): Promise<HtbLab[]> {
+    return await db.select().from(htbLabs);
+  }
+
+  async getActiveHtbLab(): Promise<HtbLab | undefined> {
+    const [lab] = await db.select().from(htbLabs).where(eq(htbLabs.status, "active"));
+    return lab || undefined;
+  }
+
+  async createHtbLab(insertLab: InsertHtbLab): Promise<HtbLab> {
+    const [lab] = await db
+      .insert(htbLabs)
+      .values(insertLab)
+      .returning();
+    return lab;
+  }
+
+  async updateHtbLab(id: number, lab: Partial<InsertHtbLab>): Promise<HtbLab | undefined> {
+    const [updated] = await db
+      .update(htbLabs)
+      .set(lab)
+      .where(eq(htbLabs.id, id))
+      .returning();
+    return updated || undefined;
+  }
+
+  // Activities
+  async getActivities(): Promise<Activity[]> {
+    return await db.select().from(activities);
+  }
+
+  async getRecentActivities(limit: number = 10): Promise<Activity[]> {
+    return await db.select().from(activities).limit(limit);
+  }
+
+  async createActivity(insertActivity: InsertActivity): Promise<Activity> {
+    const [activity] = await db
+      .insert(activities)
+      .values(insertActivity)
+      .returning();
+    return activity;
+  }
+
+  // Network Topology (stored in memory for now)
+  private networkTopology: { nodes: NetworkNode[], links: NetworkLink[] } = { nodes: [], links: [] };
+
+  async getNetworkTopology(): Promise<{ nodes: NetworkNode[], links: NetworkLink[] }> {
+    return this.networkTopology;
+  }
+
+  async updateNetworkTopology(nodes: NetworkNode[], links: NetworkLink[]): Promise<void> {
+    this.networkTopology = { nodes, links };
+  }
+}
+
+export const storage = new DatabaseStorage();
