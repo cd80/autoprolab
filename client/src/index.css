@@ -3,25 +3,25 @@
 @tailwind utilities;
 
 :root {
-  --background: hsl(0, 0%, 100%);
-  --foreground: hsl(20, 14.3%, 4.1%);
-  --muted: hsl(60, 4.8%, 95.9%);
-  --muted-foreground: hsl(25, 5.3%, 44.7%);
-  --popover: hsl(0, 0%, 100%);
-  --popover-foreground: hsl(20, 14.3%, 4.1%);
-  --card: hsl(0, 0%, 100%);
-  --card-foreground: hsl(20, 14.3%, 4.1%);
-  --border: hsl(20, 5.9%, 90%);
-  --input: hsl(20, 5.9%, 90%);
+  --background: hsl(222, 47%, 11%);
+  --foreground: hsl(0, 0%, 98%);
+  --muted: hsl(215, 28%, 17%);
+  --muted-foreground: hsl(215, 20.2%, 65.1%);
+  --popover: hsl(224, 71.4%, 4.1%);
+  --popover-foreground: hsl(0, 0%, 98%);
+  --card: hsl(224, 71.4%, 4.1%);
+  --card-foreground: hsl(0, 0%, 98%);
+  --border: hsl(215, 27.9%, 16.9%);
+  --input: hsl(215, 27.9%, 16.9%);
   --primary: hsl(207, 90%, 54%);
   --primary-foreground: hsl(211, 100%, 99%);
-  --secondary: hsl(60, 4.8%, 95.9%);
-  --secondary-foreground: hsl(24, 9.8%, 10%);
-  --accent: hsl(60, 4.8%, 95.9%);
-  --accent-foreground: hsl(24, 9.8%, 10%);
+  --secondary: hsl(215, 27.9%, 16.9%);
+  --secondary-foreground: hsl(0, 0%, 98%);
+  --accent: hsl(215, 27.9%, 16.9%);
+  --accent-foreground: hsl(0, 0%, 98%);
   --destructive: hsl(0, 84.2%, 60.2%);
   --destructive-foreground: hsl(60, 9.1%, 97.8%);
-  --ring: hsl(20, 14.3%, 4.1%);
+  --ring: hsl(215, 20.2%, 65.1%);
   --radius: 0.5rem;
 
   /* Cybersecurity theme colors */
@@ -98,6 +98,36 @@
 
   .btn-secondary {
     @apply bg-slate-700 hover:bg-slate-600 text-slate-200 px-4 py-2 rounded-lg font-medium transition-colors flex items-center space-x-2;
+  }
+
+  /* Force dark theme text visibility */
+  .card * {
+    color: inherit !important;
+  }
+  
+  .card h1, .card h2, .card h3, .card h4, .card h5, .card h6 {
+    @apply text-white !important;
+  }
+  
+  .card p, .card span:not(.badge) {
+    @apply text-slate-200 !important;
+  }
+  
+  .card .text-muted, .card .text-muted-foreground {
+    @apply text-slate-400 !important;
+  }
+  
+  /* Override shadcn components */
+  [data-radix-popper-content-wrapper] {
+    @apply bg-slate-800 border-slate-700 !important;
+  }
+  
+  [data-radix-select-content] {
+    @apply bg-slate-800 border-slate-700 text-white !important;
+  }
+  
+  [data-radix-select-item] {
+    @apply text-white hover:bg-slate-700 !important;
   }
 
   .btn-danger {
