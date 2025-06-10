@@ -315,9 +315,9 @@ export class MemStorage implements IStorage {
       id: this.targetId++,
       status: insertTarget.status || "target",
       operatingSystem: insertTarget.operatingSystem || null,
-      openPorts: insertTarget.openPorts || null,
-      vulnerabilities: insertTarget.vulnerabilities || null,
-      flags: insertTarget.flags || null,
+      openPorts: insertTarget.openPorts || [],
+      vulnerabilities: insertTarget.vulnerabilities || [],
+      flags: insertTarget.flags || [],
       networkSegment: insertTarget.networkSegment || null,
       assignedAgentId: insertTarget.assignedAgentId || null,
       createdAt: new Date(),
@@ -330,7 +330,10 @@ export class MemStorage implements IStorage {
     const existing = this.targets.get(id);
     if (!existing) return undefined;
     
-    const updated = { ...existing, ...target };
+    const updated: Target = { 
+      ...existing, 
+      ...target,
+    };
     this.targets.set(id, updated);
     return updated;
   }
@@ -564,9 +567,22 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updateTarget(id: number, target: Partial<InsertTarget>): Promise<Target | undefined> {
+    const updateData = {
+      ...target,
+      openPorts: target.openPorts ? (Array.isArray(target.openPorts) ? target.openPorts : []) : undefined,
+      vulnerabilities: target.vulnerabilities ? (Array.isArray(target.vulnerabilities) ? target.vulnerabilities : []) : undefined,
+      flags: target.flags ? (Array.isArray(target.flags) ? target.flags : []) : undefined
+    };
+    
+    Object.keys(updateData).forEach(key => {
+      if (updateData[key as keyof typeof updateData] === undefined) {
+        delete updateData[key as keyof typeof updateData];
+      }
+    });
+    
     const [updated] = await db
       .update(targets)
-      .set(target)
+      .set(updateData)
       .where(eq(targets.id, id))
       .returning();
     return updated || undefined;
@@ -574,7 +590,7 @@ export class DatabaseStorage implements IStorage {
 
   async deleteTarget(id: number): Promise<boolean> {
     const result = await db.delete(targets).where(eq(targets.id, id));
-    return result.rowCount > 0;
+    return (result.rowCount || 0) > 0;
   }
 
   // MCP Servers
@@ -606,7 +622,7 @@ export class DatabaseStorage implements IStorage {
 
   async deleteMcpServer(id: number): Promise<boolean> {
     const result = await db.delete(mcpServers).where(eq(mcpServers.id, id));
-    return result.rowCount > 0;
+    return (result.rowCount || 0) > 0;
   }
 
   // Custom Tools
@@ -638,7 +654,7 @@ export class DatabaseStorage implements IStorage {
 
   async deleteCustomTool(id: number): Promise<boolean> {
     const result = await db.delete(customTools).where(eq(customTools.id, id));
-    return result.rowCount > 0;
+    return (result.rowCount || 0) > 0;
   }
 
   // HTB Labs
