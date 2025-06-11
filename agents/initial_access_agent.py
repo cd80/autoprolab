@@ -143,7 +143,7 @@ class InitialAccessAgent(Agent):
         else:
             return await self._generic_smb_exploit(target, vuln_type)
     
-    async def brute_force_service(self, target: str, service: str, port: int, userlist: List[str] = None) -> Dict:
+    async def brute_force_service(self, target: str, service: str, port: int, userlist: Optional[List[str]] = None) -> Dict:
         """
         Perform brute force attack on a service.
         
@@ -281,7 +281,7 @@ class InitialAccessAgent(Agent):
             service_type = service.get("type")
             port = service.get("port", "").split("/")[0]
             
-            if service_type in ['ssh', 'ftp', 'smb']:
+            if service_type and service_type in ['ssh', 'ftp', 'smb']:
                 try:
                     port_int = int(port)
                     brute_result = await self.brute_force_service(target, service_type, port_int)

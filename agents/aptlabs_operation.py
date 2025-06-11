@@ -46,7 +46,7 @@ class AptlabsOperationAgent(Agent):
         self.agents = {}
         self.htb_operator_initialized = False
     
-    async def initialize_operation(self, config: Dict = None) -> Dict:
+    async def initialize_operation(self, config: Optional[Dict] = None) -> Dict:
         """
         Initialize the complete APTLabs operation.
         
@@ -116,6 +116,11 @@ class AptlabsOperationAgent(Agent):
         print("⚔️ Executing APTLabs attack chain")
         
         try:
+            # Initialize agents first
+            init_result = await self._initialize_agents()
+            if not init_result["success"]:
+                return init_result
+            
             discovery_result = await self._phase_network_discovery()
             if not discovery_result["success"]:
                 return discovery_result
@@ -136,6 +141,10 @@ class AptlabsOperationAgent(Agent):
                 "success": True,
                 "message": f"Attack chain completed. Captured {len(self.operation_state['captured_flags'])} flags",
                 "captured_flags": self.operation_state["captured_flags"],
+                "discovered_hosts": self.operation_state["discovered_hosts"],
+                "compromised_hosts": self.operation_state["compromised_hosts"],
+                "current_phase": self.operation_state["current_phase"],
+                "status": "completed",
                 "operation_report": final_report
             }
             
@@ -290,7 +299,7 @@ class AptlabsOperationAgent(Agent):
                 "error": str(e)
             }
     
-    async def _initialize_agents(self):
+    async def _initialize_agents(self) -> Dict:
         """Initialize all specialized agents."""
         try:
             from .team_leader_agent import TeamLeaderAgent
@@ -298,20 +307,31 @@ class AptlabsOperationAgent(Agent):
             from .recon_agent import ReconAgent
             from .initial_access_agent import InitialAccessAgent
             from .htb_aptlabs_agent import HtbAptlabsAgent
+            from .web_hacking_agent import WebHackingAgent
             
             self.agents = {
                 "team_leader": TeamLeaderAgent(),
                 "scanner": NetworkScannerAgent(),
                 "recon": ReconAgent(),
                 "access": InitialAccessAgent(),
-                "htb": HtbAptlabsAgent()
+                "htb": HtbAptlabsAgent(),
+                "web_hacking": WebHackingAgent()
             }
             
             print("✅ All specialized agents initialized")
             
+            return {
+                "success": True,
+                "message": "All specialized agents initialized successfully",
+                "agents": list(self.agents.keys())
+            }
+            
         except Exception as e:
             print(f"❌ Agent initialization failed: {e}")
-            raise
+            return {
+                "success": False,
+                "error": f"Agent initialization failed: {str(e)}"
+            }
     
     async def _phase_network_discovery(self) -> Dict:
         """Phase 1: Network Discovery."""
@@ -367,9 +387,10 @@ class AptlabsOperationAgent(Agent):
                 enumeration_results[target] = {"error": str(result), "success": False}
             else:
                 enumeration_results[target] = result
-                potential_flags = result.get("potential_flags", [])
-                if potential_flags:
-                    print(f"🚩 Found {len(potential_flags)} potential flag locations on {target}")
+                if isinstance(result, dict):
+                    potential_flags = result.get("potential_flags", [])
+                    if potential_flags:
+                        print(f"🚩 Found {len(potential_flags)} potential flag locations on {target}")
         
         return enumeration_results
 
@@ -438,7 +459,7 @@ class AptlabsOperationAgent(Agent):
                         "success": False,
                         "error": str(result)
                     })
-                elif result.get("success"):
+                elif isinstance(result, dict) and result.get("success"):
                     self.operation_state["compromised_hosts"].append(target)
                     print(f"✅ Initial access gained on {target}")
                     
@@ -449,10 +470,11 @@ class AptlabsOperationAgent(Agent):
                         "flags_found": flags_found
                     })
                 else:
+                    error_msg = result.get("error", "Unknown error") if isinstance(result, dict) else "Unknown error"
                     access_results.append({
                         "target": target,
                         "success": False,
-                        "error": result.get("error", "Unknown error")
+                        "error": error_msg
                     })
             
             successful_accesses = [r for r in access_results if r["success"]]
