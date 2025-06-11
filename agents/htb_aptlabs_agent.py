@@ -42,8 +42,7 @@ class HtbAptlabsAgent(Agent):
             "network": "10.10.110.0/24",
             "machines": 18,
             "flags": 20,
-            "difficulty": "Expert",
-            "entry_point": "APT-FW01"
+            "difficulty": "Expert"
         }
     
     async def initialize_aptlabs_operation(self) -> Dict[str, Any]:
@@ -72,7 +71,7 @@ class HtbAptlabsAgent(Agent):
                 "lab_details": lab_details,
                 "next_steps": [
                     "Perform detailed port scanning on discovered hosts",
-                    "Enumerate services on APT-FW01 (entry point)",
+                    "Enumerate services on all discovered hosts in parallel",
                     "Begin vulnerability assessment"
                 ]
             }
@@ -98,9 +97,9 @@ class HtbAptlabsAgent(Agent):
                     "status": status_result
                 }
             
-            vpn_list = await self._run_htb_command("vpn list")
+            vpn_list = await self._run_htb_command("vpn list --prolabs")
             
-            start_result = await self._run_htb_command("vpn start")
+            start_result = await self._run_htb_command("vpn start --id 309")
             
             await asyncio.sleep(10)
             

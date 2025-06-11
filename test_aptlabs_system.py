@@ -79,7 +79,7 @@ async def test_network_scanner_aptlabs_config(network_scanner):
         expected_config = {
             "network": "10.10.110.0/24",
             "expected_machines": 18,
-            "entry_point": "10.10.110.1"
+            "target_network": "10.10.110.0/24"
         }
         
         for key, expected_value in expected_config.items():
@@ -113,7 +113,7 @@ async def test_recon_agent_aptlabs_features(recon_agent):
         
         expected_features = [
             "network",
-            "entry_point", 
+            "target_network", 
             "domain_environment",
             "machine_types",
             "common_ad_ports"
@@ -129,7 +129,7 @@ async def test_recon_agent_aptlabs_features(recon_agent):
             "_aptlabs_enumeration",
             "_detect_machine_type",
             "_enumerate_active_directory",
-            "_analyze_entry_point",
+            "_analyze_infrastructure_host",
             "submit_discovered_info_to_htb",
             "check_for_flags_in_enumeration"
         ]
@@ -322,22 +322,22 @@ async def simulate_aptlabs_operation():
             
             if phase == "network_discovery":
                 operation.operation_state["discovered_hosts"] = [
-                    "10.10.110.1",  # APT-FW01 (entry point)
                     "10.10.110.10", # Example Windows DC
                     "10.10.110.20", # Example Windows workstation
-                    "10.10.110.30"  # Example additional machine
+                    "10.10.110.30", # Example additional machine
+                    "10.10.110.40"  # Example infrastructure host
                 ]
                 print(f"     ✅ Discovered {len(operation.operation_state['discovered_hosts'])} hosts")
             
             elif phase == "initial_access":
-                operation.operation_state["compromised_hosts"] = ["10.10.110.1"]
-                print(f"     ✅ Gained access to entry point: 10.10.110.1")
+                operation.operation_state["compromised_hosts"] = ["10.10.110.10"]
+                print(f"     ✅ Gained access to discovered host: 10.10.110.10")
             
             elif phase == "flag_hunting":
                 operation.operation_state["captured_flags"] = [
                     {
                         "flag": "HTB{simulated_flag_1}",
-                        "host": "10.10.110.1",
+                        "host": "10.10.110.10",
                         "timestamp": datetime.now().isoformat()
                     }
                 ]

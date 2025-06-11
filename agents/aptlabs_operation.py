@@ -47,7 +47,6 @@ class AptlabsOperationAgent(Agent):
             "prolab_id": 5,
             "network": "10.10.110.0/24",
             "expected_machines": 18,
-            "entry_point": "10.10.110.1",  # APT-FW01
             "flag_patterns": [
                 r"HTB\{[a-zA-Z0-9_\-]+\}",
                 r"user\.txt",
@@ -224,7 +223,7 @@ class AptlabsOperationAgent(Agent):
     async def _connect_vpn(self) -> Dict:
         """Connect to APTLabs VPN."""
         try:
-            cmd = ["htb-operator", "prolabs", "vpn", "--name", self.aptlabs_config["prolab_name"]]
+            cmd = ["htb-operator", "vpn", "start", "--id", "309"]
             
             process = await asyncio.create_subprocess_exec(
                 *cmd,
@@ -262,7 +261,10 @@ class AptlabsOperationAgent(Agent):
     async def _verify_network_connectivity(self) -> Dict:
         """Verify connectivity to APTLabs network."""
         try:
-            cmd = ["ping", "-c", "3", self.aptlabs_config["entry_point"]]
+            test_host = (self.operation_state["discovered_hosts"][0] 
+                        if self.operation_state["discovered_hosts"] 
+                        else "8.8.8.8")
+            cmd = ["ping", "-c", "3", test_host]
             
             process = await asyncio.create_subprocess_exec(
                 *cmd,
@@ -275,13 +277,13 @@ class AptlabsOperationAgent(Agent):
             if process.returncode == 0:
                 return {
                     "success": True,
-                    "message": f"Network connectivity verified to {self.aptlabs_config['entry_point']}",
+                    "message": f"Network connectivity verified to {test_host}",
                     "ping_output": stdout.decode()
                 }
             else:
                 return {
                     "success": False,
-                    "message": f"No connectivity to {self.aptlabs_config['entry_point']}",
+                    "message": f"No connectivity to {test_host}",
                     "error": stderr.decode()
                 }
                 
@@ -350,6 +352,30 @@ class AptlabsOperationAgent(Agent):
                 "error": f"Network discovery phase failed: {str(e)}"
             }
     
+    async def _enumerate_targets_parallel(self, targets: List[str], recon_agent) -> Dict:
+        """Helper function for parallel target enumeration."""
+        tasks = []
+        for target in targets:
+            print(f"🎯 Enumerating {target}")
+            task = recon_agent.enumerate_target(target=target, is_aptlabs=True)
+            tasks.append(task)
+        
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+        
+        enumeration_results = {}
+        for i, target in enumerate(targets):
+            result = results[i]
+            if isinstance(result, Exception):
+                print(f"❌ Enumeration failed for {target}: {str(result)}")
+                enumeration_results[target] = {"error": str(result), "success": False}
+            else:
+                enumeration_results[target] = result
+                potential_flags = result.get("potential_flags", [])
+                if potential_flags:
+                    print(f"🚩 Found {len(potential_flags)} potential flag locations on {target}")
+        
+        return enumeration_results
+
     async def _phase_target_enumeration(self) -> Dict:
         """Phase 2: Target Enumeration."""
         print("🔍 Phase 2: Target Enumeration")
@@ -358,31 +384,20 @@ class AptlabsOperationAgent(Agent):
             self.operation_state["current_phase"] = "target_enumeration"
             
             recon_agent = self.agents["recon"]
-            enumeration_results = {}
             
-            priority_targets = [self.aptlabs_config["entry_point"]]
-            other_targets = [host for host in self.operation_state["discovered_hosts"] 
-                           if host != self.aptlabs_config["entry_point"]]
-            priority_targets.extend(other_targets[:5])  # Enumerate top 5 additional targets
+            all_targets = self.operation_state["discovered_hosts"]
+            print(f"🎯 Starting parallel enumeration of {len(all_targets)} targets")
             
-            for target in priority_targets:
-                print(f"🎯 Enumerating {target}")
-                
-                enum_result = await recon_agent.enumerate_target(
-                    target=target,
-                    is_aptlabs=True
-                )
-                
-                enumeration_results[target] = enum_result
-                
-                potential_flags = enum_result.get("potential_flags", [])
-                if potential_flags:
-                    print(f"🚩 Found {len(potential_flags)} potential flag locations on {target}")
+            enumeration_results = await self._enumerate_targets_parallel(all_targets, recon_agent)
+            
+            successful_enumerations = [target for target, result in enumeration_results.items() 
+                                     if not result.get("error")]
             
             return {
                 "success": True,
-                "message": f"Target enumeration completed for {len(priority_targets)} hosts",
-                "enumeration_results": enumeration_results
+                "message": f"Target enumeration completed for {len(successful_enumerations)}/{len(all_targets)} hosts",
+                "enumeration_results": enumeration_results,
+                "successful_targets": successful_enumerations
             }
             
         except Exception as e:
@@ -400,30 +415,62 @@ class AptlabsOperationAgent(Agent):
             
             initial_access_agent = self.agents["initial_access"]
             
-            entry_point = self.aptlabs_config["entry_point"]
-            print(f"🎯 Attempting initial access on entry point: {entry_point}")
+            access_tasks = []
+            targets = self.operation_state["discovered_hosts"]
             
-            access_result = await initial_access_agent.attempt_initial_access(
-                target=entry_point,
-                recon_data={}  # Would be populated from enumeration phase
-            )
+            print(f"🎯 Starting parallel initial access attempts on {len(targets)} hosts")
             
-            if access_result.get("success"):
-                self.operation_state["compromised_hosts"].append(entry_point)
-                print(f"✅ Initial access gained on {entry_point}")
+            for target in targets:
+                print(f"🎯 Preparing initial access task for: {target}")
+                task = initial_access_agent.attempt_initial_access(
+                    target=target,
+                    recon_data={}  # Would be populated from enumeration phase
+                )
+                access_tasks.append(task)
+            
+            task_results = await asyncio.gather(*access_tasks, return_exceptions=True)
+            
+            access_results = []
+            for i, target in enumerate(targets):
+                result = task_results[i]
                 
-                flags_found = await self._search_for_flags(entry_point)
-                
+                if isinstance(result, Exception):
+                    print(f"❌ Initial access failed for {target}: {str(result)}")
+                    access_results.append({
+                        "target": target,
+                        "success": False,
+                        "error": str(result)
+                    })
+                elif result.get("success"):
+                    self.operation_state["compromised_hosts"].append(target)
+                    print(f"✅ Initial access gained on {target}")
+                    
+                    flags_found = await self._search_for_flags(target)
+                    access_results.append({
+                        "target": target,
+                        "success": True,
+                        "flags_found": flags_found
+                    })
+                else:
+                    access_results.append({
+                        "target": target,
+                        "success": False,
+                        "error": result.get("error", "Unknown error")
+                    })
+            
+            successful_accesses = [r for r in access_results if r["success"]]
+            if successful_accesses:
                 return {
                     "success": True,
-                    "message": f"Initial access gained on {entry_point}",
-                    "compromised_host": entry_point,
-                    "flags_found": flags_found
+                    "message": f"Initial access gained on {len(successful_accesses)} hosts",
+                    "access_results": access_results,
+                    "compromised_hosts": [r["target"] for r in successful_accesses]
                 }
             else:
                 return {
                     "success": False,
-                    "error": f"Failed to gain initial access on {entry_point}"
+                    "error": "Failed to gain initial access on any discovered hosts",
+                    "access_results": access_results
                 }
                 
         except Exception as e:
