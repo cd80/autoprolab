@@ -37,17 +37,42 @@ export class HtbOperatorService {
   }
 
   async getAvailableLabs(): Promise<HtbLab[]> {
+    if (!this.htbApiKey) {
+      throw new Error('HTB_API_KEY is required but not found in environment variables');
+    }
+
     try {
       await this.ensureInitialized();
       const { stdout } = await execAsync('htb-operator prolabs list', {
-        env: { ...process.env, HTB_API_KEY: this.htbApiKey }
+        env: { ...process.env, HTB_API_KEY: this.htbApiKey },
+        timeout: 30000
       });
       
       const labs = this.parseProLabsOutput(stdout);
+      if (labs.length === 0) {
+        throw new Error('No ProLabs found in HTB API response');
+      }
       return labs;
     } catch (error) {
       console.error('Failed to fetch HTB ProLabs:', error);
-      return this.getMockLabs();
+      
+      try {
+        console.log('Retrying HTB ProLabs fetch with re-initialization...');
+        await this.forceReInitialize();
+        const { stdout } = await execAsync('htb-operator prolabs list', {
+          env: { ...process.env, HTB_API_KEY: this.htbApiKey },
+          timeout: 30000
+        });
+        
+        const labs = this.parseProLabsOutput(stdout);
+        if (labs.length === 0) {
+          throw new Error('No ProLabs found in HTB API response after retry');
+        }
+        return labs;
+      } catch (retryError) {
+        console.error('Retry failed:', retryError);
+        throw new Error(`Failed to fetch HTB ProLabs: ${error}. Retry also failed: ${retryError}`);
+      }
     }
   }
 
@@ -95,35 +120,78 @@ export class HtbOperatorService {
   }
 
   async getActiveLab(): Promise<HtbLab | null> {
+    if (!this.htbApiKey) {
+      throw new Error('HTB_API_KEY is required but not found in environment variables');
+    }
+
     try {
       await this.ensureInitialized();
       
       const { stdout } = await execAsync('htb-operator vpn status', {
-        env: { ...process.env, HTB_API_KEY: this.htbApiKey }
+        env: { ...process.env, HTB_API_KEY: this.htbApiKey },
+        timeout: 15000
       });
       
       if (stdout.includes('Connected') || stdout.includes('Active')) {
-        return await this.getLabDetails('APTLabs');
+        const labNameMatch = stdout.match(/Connected to (.+?) ProLab/i) || 
+                           stdout.match(/Active ProLab: (.+)/i);
+        
+        if (labNameMatch) {
+          const labName = labNameMatch[1].trim();
+          return await this.getLabDetails(labName);
+        } else {
+          const labs = await this.getAvailableLabs();
+          if (labs.length > 0) {
+            return await this.getLabDetails(labs[0].name);
+          }
+        }
       }
       return null;
     } catch (error) {
       console.error('Failed to get active ProLab:', error);
-      return null;
+      throw new Error(`Failed to get active ProLab: ${error}`);
     }
   }
 
   async getLabDetails(labName: string): Promise<HtbLab> {
+    if (!this.htbApiKey) {
+      throw new Error('HTB_API_KEY is required but not found in environment variables');
+    }
+
     try {
       await this.ensureInitialized();
-      const { stdout } = await execAsync(`htb-operator prolabs info --name ${labName}`, {
-        env: { ...process.env, HTB_API_KEY: this.htbApiKey }
+      const { stdout } = await execAsync(`htb-operator prolabs info --name "${labName}"`, {
+        env: { ...process.env, HTB_API_KEY: this.htbApiKey },
+        timeout: 20000
       });
       
       const labInfo = this.parseProLabInfo(stdout);
       return labInfo;
     } catch (error) {
       console.error('Failed to get ProLab details:', error);
-      throw error;
+      
+      try {
+        console.log(`Retrying with lab ID lookup for: ${labName}`);
+        const labs = await this.getAvailableLabs();
+        const targetLab = labs.find(lab => 
+          lab.name.toLowerCase() === labName.toLowerCase() || 
+          lab.id === labName
+        );
+        
+        if (targetLab) {
+          const { stdout } = await execAsync(`htb-operator prolabs info --id ${targetLab.id}`, {
+            env: { ...process.env, HTB_API_KEY: this.htbApiKey },
+            timeout: 20000
+          });
+          
+          const labInfo = this.parseProLabInfo(stdout);
+          return labInfo;
+        }
+      } catch (retryError) {
+        console.error('Retry with lab ID also failed:', retryError);
+      }
+      
+      throw new Error(`Failed to get ProLab details for ${labName}: ${error}`);
     }
   }
 
@@ -181,11 +249,47 @@ export class HtbOperatorService {
   }
 
   private async ensureInitialized(): Promise<void> {
+    if (!this.htbApiKey) {
+      throw new Error('HTB_API_KEY is required for initialization');
+    }
+
     try {
-      await execAsync('htb-operator init -api $HTB_API_KEY', {
-        env: { ...process.env, HTB_API_KEY: this.htbApiKey }
+      const { stdout, stderr } = await execAsync('htb-operator init -api $HTB_API_KEY', {
+        env: { ...process.env, HTB_API_KEY: this.htbApiKey },
+        timeout: 15000
       });
+      
+      if (stderr && stderr.includes('error')) {
+        throw new Error(`HTB operator initialization failed: ${stderr}`);
+      }
     } catch (error) {
+      console.error('HTB operator initialization error:', error);
+      throw new Error(`Failed to initialize HTB operator: ${error}`);
+    }
+  }
+
+  private async forceReInitialize(): Promise<void> {
+    if (!this.htbApiKey) {
+      throw new Error('HTB_API_KEY is required for re-initialization');
+    }
+
+    try {
+      await execAsync('htb-operator logout', {
+        env: { ...process.env, HTB_API_KEY: this.htbApiKey },
+        timeout: 10000
+      }).catch(() => {}); // Ignore logout errors
+      
+      const { stdout, stderr } = await execAsync('htb-operator init -api $HTB_API_KEY', {
+        env: { ...process.env, HTB_API_KEY: this.htbApiKey },
+        timeout: 15000
+      });
+      
+      if (stderr && stderr.includes('error')) {
+        throw new Error(`HTB operator re-initialization failed: ${stderr}`);
+      }
+    } catch (error) {
+      console.error('HTB operator re-initialization error:', error);
+      throw new Error(`Failed to re-initialize HTB operator: ${error}`);
     }
   }
 
@@ -281,31 +385,40 @@ export class HtbOperatorService {
         if (networkMatch) labInfo.network = networkMatch[1].trim();
       }
       
-      if (cleanLine.includes('APT-') && cleanLine.includes('🐧') || cleanLine.includes('🗔')) {
+      if (cleanLine.includes('APT-') || cleanLine.includes('🐧') || cleanLine.includes('🗔') || cleanLine.includes('Windows') || cleanLine.includes('Linux')) {
         const parts = cleanLine.split(/\s+/);
         if (parts.length >= 2) {
-          const machineName = parts[0];
-          const os = cleanLine.includes('🐧') ? 
-            (cleanLine.includes('FreeBSD') ? 'FreeBSD' : 'Linux') : 
-            'Windows';
-          
-          machines.push({
-            id: machineName.toLowerCase(),
-            name: machineName,
-            ip: `10.10.110.${machines.length + 100}`, // Placeholder IPs
-            os: os,
-            difficulty: labInfo.difficulty || 'Expert',
-            flags: { user: false, root: false }
-          });
+          const machineName = parts.find(part => part.includes('APT-') || part.match(/^[A-Z]+-[A-Z0-9]+$/));
+          if (machineName) {
+            const os = cleanLine.includes('🐧') ? 
+              (cleanLine.includes('FreeBSD') ? 'FreeBSD' : 'Linux') : 
+              (cleanLine.includes('🗔') || cleanLine.includes('Windows') ? 'Windows' : 'Unknown');
+            
+            const ipMatch = cleanLine.match(/(\d+\.\d+\.\d+\.\d+)/);
+            const machineIp = ipMatch ? ipMatch[1] : `10.10.110.${machines.length + 100}`;
+            
+            machines.push({
+              id: machineName.toLowerCase(),
+              name: machineName,
+              ip: machineIp,
+              os: os,
+              difficulty: labInfo.difficulty || 'Expert',
+              flags: { user: false, root: false }
+            });
+          }
         }
       }
     }
     
+    if (!labInfo.name) {
+      throw new Error('Lab name not found in HTB API response');
+    }
+    
     return {
-      id: labInfo.id || '5',
-      name: labInfo.name || 'APTLabs',
-      difficulty: labInfo.difficulty || 'Expert',
-      description: `Advanced Persistent Threat simulation lab with ${labInfo.machineCount || 18} machines`,
+      id: labInfo.id || labInfo.name.toLowerCase().replace(/\s+/g, '-'),
+      name: labInfo.name,
+      difficulty: labInfo.difficulty || 'Unknown',
+      description: `${labInfo.name} ProLab with ${labInfo.machineCount || machines.length} machines and ${labInfo.flagCount || 0} flags`,
       status: 'available',
       machines: machines,
       network: labInfo.network || '10.10.110.0/24'
@@ -344,44 +457,7 @@ export class HtbOperatorService {
     }
   }
 
-  private getMockLabs(): HtbLab[] {
-    return [
-      {
-        id: "5",
-        name: "APTLabs",
-        difficulty: "Expert",
-        description: "Advanced Persistent Threat simulation lab with 18 machines",
-        status: "available",
-        machines: [
-          {
-            id: "apt-dc01",
-            name: "APT-DC01",
-            ip: "10.10.110.100",
-            os: "Windows Server 2019",
-            difficulty: "Expert",
-            flags: { user: false, root: false }
-          },
-          {
-            id: "apt-web01",
-            name: "APT-WEB01",
-            ip: "10.10.110.101",
-            os: "Linux",
-            difficulty: "Expert",
-            flags: { user: false, root: false }
-          },
-          {
-            id: "apt-db01",
-            name: "APT-DB01",
-            ip: "10.10.110.102",
-            os: "Windows Server 2016",
-            difficulty: "Expert",
-            flags: { user: false, root: false }
-          }
-        ],
-        network: "10.10.110.0/24"
-      }
-    ];
-  }
+
 }
 
 export const htbOperator = new HtbOperatorService();

