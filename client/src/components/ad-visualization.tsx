@@ -70,105 +70,24 @@ export default function ADVisualization() {
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
   const [selectedTab, setSelectedTab] = useState("overview");
 
-  // Mock AD data - in production this would come from your API
-  const adDomain: ADDomain = {
-    name: "corp.local",
-    netbiosName: "CORP",
-    domainControllers: ["DC01.corp.local", "DC02.corp.local"],
-    trusts: [
-      {
-        targetDomain: "dev.corp.local",
-        trustType: "External",
-        trustDirection: "Bidirectional"
-      }
-    ],
-    functionalLevel: "2016"
+  const [adDomain, setAdDomain] = useState<ADDomain | null>(null);
+
+  const [adUsers, setAdUsers] = useState<ADUser[]>([]);
+
+  const [adGroups, setAdGroups] = useState<ADGroup[]>([]);
+
+  const [adComputers, setAdComputers] = useState<ADComputer[]>([]);
+
+  useEffect(() => {
+    fetchADData();
+  }, []);
+
+  const fetchADData = async () => {
+    try {
+    } catch (error) {
+      console.error('Failed to fetch AD data:', error);
+    }
   };
-
-  const adUsers: ADUser[] = [
-    {
-      id: "1",
-      username: "administrator",
-      displayName: "Built-in Administrator",
-      email: "admin@corp.local",
-      lastLogon: "2024-01-15T14:30:00Z",
-      enabled: true,
-      memberOf: ["Domain Admins", "Enterprise Admins"],
-      adminCount: 1,
-      description: "Built-in account for administering the computer/domain"
-    },
-    {
-      id: "2", 
-      username: "jdoe",
-      displayName: "John Doe",
-      email: "jdoe@corp.local",
-      lastLogon: "2024-01-15T09:15:00Z",
-      enabled: true,
-      memberOf: ["Domain Users", "IT Support"],
-      description: "IT Support Team Lead"
-    },
-    {
-      id: "3",
-      username: "serviceacct",
-      displayName: "Service Account",
-      email: "service@corp.local", 
-      lastLogon: "2024-01-15T12:00:00Z",
-      enabled: true,
-      memberOf: ["Domain Users", "Service Accounts"],
-      description: "SQL Service Account"
-    }
-  ];
-
-  const adGroups: ADGroup[] = [
-    {
-      id: "1",
-      name: "Domain Admins",
-      type: "Security",
-      scope: "Global",
-      members: ["administrator"],
-      privileged: true,
-      description: "Designated administrators of the domain"
-    },
-    {
-      id: "2",
-      name: "Enterprise Admins", 
-      type: "Security",
-      scope: "Universal",
-      members: ["administrator"],
-      privileged: true,
-      description: "Designated administrators of the enterprise"
-    },
-    {
-      id: "3",
-      name: "IT Support",
-      type: "Security", 
-      scope: "Global",
-      members: ["jdoe"],
-      privileged: false,
-      description: "IT Support team members"
-    }
-  ];
-
-  const adComputers: ADComputer[] = [
-    {
-      id: "1",
-      name: "DC01",
-      operatingSystem: "Windows Server 2019",
-      lastLogon: "2024-01-15T14:45:00Z",
-      enabled: true,
-      servicePrincipalNames: ["ldap/DC01.corp.local", "DNS/DC01.corp.local"],
-      description: "Primary Domain Controller"
-    },
-    {
-      id: "2",
-      name: "WS01",
-      operatingSystem: "Windows 10 Enterprise",
-      lastLogon: "2024-01-15T08:30:00Z", 
-      enabled: true,
-      servicePrincipalNames: [],
-      description: "John Doe's workstation"
-    }
-  ];
 
   const toggleGroup = (groupId: string) => {
     setExpandedGroups(prev => {
@@ -233,20 +152,27 @@ export default function ADVisualization() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="text-center">
-              <div className="text-2xl font-bold text-blue-400">{adDomain.name}</div>
-              <div className="text-sm text-slate-400">Domain</div>
+          {adDomain ? (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="text-center">
+                <div className="text-2xl font-bold text-blue-400">{adDomain.name}</div>
+                <div className="text-sm text-slate-400">Domain</div>
+              </div>
+              <div className="text-center">
+                <div className="text-2xl font-bold text-green-400">{adDomain.domainControllers.length}</div>
+                <div className="text-sm text-slate-400">Domain Controllers</div>
+              </div>
+              <div className="text-center">
+                <div className="text-2xl font-bold text-amber-400">{adDomain.functionalLevel}</div>
+                <div className="text-sm text-slate-400">Functional Level</div>
+              </div>
             </div>
-            <div className="text-center">
-              <div className="text-2xl font-bold text-green-400">{adDomain.domainControllers.length}</div>
-              <div className="text-sm text-slate-400">Domain Controllers</div>
+          ) : (
+            <div className="text-center text-slate-400 py-8">
+              <div className="text-lg">No Active Directory data available</div>
+              <div className="text-sm">AD enumeration will be performed by reconnaissance agents</div>
             </div>
-            <div className="text-center">
-              <div className="text-2xl font-bold text-amber-400">{adDomain.functionalLevel}</div>
-              <div className="text-sm text-slate-400">Functional Level</div>
-            </div>
-          </div>
+          )}
         </CardContent>
       </Card>
 

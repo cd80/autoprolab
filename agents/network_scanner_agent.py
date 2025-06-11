@@ -40,6 +40,16 @@ class NetworkScannerAgent(Agent):
             "common_freebsd_ports": [22, 80, 443, 21, 25, 53, 110, 143]
         }
     
+    async def configure(self, config: dict):
+        """Configure the agent with specific parameters"""
+        if 'network' in config:
+            self.default_network = config['network']
+        if 'target_machines' in config:
+            self.aptlabs_config["expected_machines"] = config['target_machines']
+        
+        self.logger.info(f"NetworkScannerAgent configured for network {self.default_network}")
+        return {"success": True, "configured": True}
+    
     async def discover_network(self, network: str = None) -> Dict:
         """
         Discover live hosts in the specified network.

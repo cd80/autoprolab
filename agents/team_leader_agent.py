@@ -326,9 +326,11 @@ class TeamLeaderAgent(Agent):
                 from .web_hacking_agent import WebHackingAgent
                 return WebHackingAgent()
             else:
-                return MockAgent(agent_type)
+                self.logger.warning(f"Agent {agent_type} not available - skipping")
+                return None
         except ImportError:
-            return MockAgent(agent_type)
+            self.logger.warning(f"Agent {agent_type} not available - skipping")
+            return None
     
     async def _synthesize_results(self, results: Dict, task: str, context: Dict) -> Dict:
         """Synthesize results from multiple agents."""
@@ -503,18 +505,3 @@ class TeamLeaderAgent(Agent):
                     "started_at": "now",
                     "status": "active"
                 })
-
-class MockAgent:
-    """Mock agent for testing purposes."""
-    
-    def __init__(self, agent_type: str):
-        self.agent_type = agent_type
-    
-    async def execute_task(self, task: str, context: Dict) -> Dict:
-        return {
-            "agent": self.agent_type,
-            "task": task,
-            "status": "completed",
-            "findings": [f"Mock finding from {self.agent_type}"],
-            "recommendations": [f"Mock recommendation from {self.agent_type}"]
-        }

@@ -36,6 +36,18 @@ class InitialAccessAgent(Agent):
         
         self.successful_exploits = []
     
+    async def configure(self, config: dict):
+        """Configure the agent with specific parameters"""
+        if 'target_network' in config:
+            self.target_network = config['target_network']
+        if 'exploit_types' in config:
+            self.exploit_types = config['exploit_types']
+        if 'credentials' in config:
+            self.common_credentials.extend(config['credentials'])
+        
+        self.logger.info(f"InitialAccessAgent configured")
+        return {"success": True, "configured": True}
+    
     async def attempt_initial_access(self, target: str, recon_data: Dict) -> Dict:
         """
         Attempt to gain initial access to a target using reconnaissance data.

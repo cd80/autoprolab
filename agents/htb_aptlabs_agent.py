@@ -16,18 +16,7 @@ class HtbAptlabsAgent(Agent):
     """
     
     def __init__(self):
-        super().__init__(
-            name="htb_aptlabs_agent",
-            description="Specialized agent for HackTheBox APTLabs ProLab penetration testing",
-            instructions="""
-            You are the HTB APTLabs agent. Your role is to:
-            1. Manage VPN connections to APTLabs ProLab
-            2. Perform network discovery on 10.10.110.0/24
-            3. Coordinate with other agents for comprehensive testing
-            4. Submit captured flags to HTB platform
-            5. Track progress and maintain operation state
-            """
-        )
+        super().__init__(name="htb_aptlabs_agent")
         
         self.lab_name = "APTLabs"
         self.network_range = "10.10.110.0/24"
@@ -283,6 +272,18 @@ class HtbAptlabsAgent(Agent):
             "operation_active": self.vpn_connected,
             "next_targets": self.discovered_hosts[:3] if self.discovered_hosts else []
         }
+    
+    async def configure(self, config: dict):
+        """Configure the agent with specific parameters"""
+        if 'lab_name' in config:
+            self.lab_name = config['lab_name']
+        if 'lab_id' in config:
+            self.lab_id = config['lab_id']
+        if 'network' in config:
+            self.network_range = config['network']
+        
+        self.logger.info(f"HtbAptlabsAgent configured for {self.lab_name}")
+        return {"success": True, "configured": True}
     
     async def _ensure_htb_operator_initialized(self) -> None:
         """

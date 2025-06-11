@@ -88,144 +88,17 @@ export class MemStorage implements IStorage {
   }
 
   private initializeDefaultData() {
-    // Initialize some default teams
-    const redTeamAlpha: Team = {
-      id: this.teamId++,
-      name: "Red Team Alpha",
-      description: "Primary red team for offensive operations",
-      parentTeamId: null,
-      createdAt: new Date(),
-    };
-    this.teams.set(redTeamAlpha.id, redTeamAlpha);
-
-    const persistenceTeam: Team = {
-      id: this.teamId++,
-      name: "Persistence Team",
-      description: "Specialized in maintaining access",
-      parentTeamId: redTeamAlpha.id,
-      createdAt: new Date(),
-    };
-    this.teams.set(persistenceTeam.id, persistenceTeam);
-
-    // Initialize some default targets
-    const dc01: Target = {
-      id: this.targetId++,
-      hostname: "DC01.corp.local",
-      ipAddress: "192.168.1.10",
-      operatingSystem: "Windows Server 2019",
-      status: "compromised",
-      openPorts: [
-        { port: 22, service: "SSH" },
-        { port: 80, service: "HTTP" },
-        { port: 445, service: "SMB" }
-      ],
-      vulnerabilities: ["CVE-2021-34527"],
-      flags: [
-        { id: "user-flag-dc01", type: "user", status: "captured", capturedAt: new Date(Date.now() - 7200000).toISOString() },
-        { id: "root-flag-dc01", type: "root", status: "captured", capturedAt: new Date(Date.now() - 3600000).toISOString() }
-      ],
-      networkSegment: "corp.local",
-      assignedAgentId: null,
-      createdAt: new Date(),
-    };
-    this.targets.set(dc01.id, dc01);
-
-    const web01: Target = {
-      id: this.targetId++,
-      hostname: "WEB01.dmz.local",
-      ipAddress: "10.10.10.50",
-      operatingSystem: "Ubuntu 20.04",
-      status: "in-progress",
-      openPorts: [
-        { port: 22, service: "SSH" },
-        { port: 80, service: "HTTP" },
-        { port: 443, service: "HTTPS" }
-      ],
-      vulnerabilities: ["SQL Injection"],
-      flags: [
-        { id: "user-flag-web01", type: "user", status: "captured", capturedAt: new Date(Date.now() - 1800000).toISOString() },
-        { id: "root-flag-web01", type: "root", status: "pending" }
-      ],
-      networkSegment: "dmz.local",
-      assignedAgentId: null,
-      createdAt: new Date(),
-    };
-    this.targets.set(web01.id, web01);
-
-    const db01: Target = {
-      id: this.targetId++,
-      hostname: "DB01.internal.local",
-      ipAddress: "172.16.1.100",
-      operatingSystem: "MSSQL 2017",
-      status: "target",
-      openPorts: [
-        { port: 1433, service: "MSSQL" },
-        { port: 3389, service: "RDP" }
-      ],
-      vulnerabilities: [],
-      flags: [
-        { id: "user-flag-db01", type: "user", status: "pending" },
-        { id: "root-flag-db01", type: "root", status: "pending" }
-      ],
-      networkSegment: "internal.local",
-      assignedAgentId: null,
-      createdAt: new Date(),
-    };
-    this.targets.set(db01.id, db01);
-
-    // Initialize HTB Lab
-    const offshoreLab: HtbLab = {
-      id: this.htbLabId++,
-      name: "Offshore",
-      status: "active",
-      totalFlags: 16,
-      capturedFlags: 11,
-      completionPercentage: 68.75,
-      startedAt: new Date(Date.now() - 86400000 * 3), // 3 days ago
-      completedAt: null,
-    };
-    this.htbLabs.set(offshoreLab.id, offshoreLab);
-
-    // Initialize MCP Servers
-    const nmapServer: McpServer = {
-      id: this.mcpServerId++,
-      name: "Nmap Scanner",
-      url: "mcp://nmap-server:8080",
-      status: "online",
-      tools: ["nmap", "masscan", "ncat"],
-      createdAt: new Date(),
-    };
-    this.mcpServers.set(nmapServer.id, nmapServer);
-
-    const msfServer: McpServer = {
-      id: this.mcpServerId++,
-      name: "Metasploit Server",
-      url: "mcp://msf-server:4444",
-      status: "online",
-      tools: ["msfconsole", "msfvenom", "exploit"],
-      createdAt: new Date(),
-    };
-    this.mcpServers.set(msfServer.id, msfServer);
-
-    // Initialize network topology
+    // Initialize with empty data - will be populated by real HTB API and agent discovery
+    console.log("MemStorage initialized - ready for real data connections");
+    
+    // Initialize empty network topology
     this.networkTopology = {
-      nodes: [
-        { id: 'attacker', name: 'Attacker', type: 'attacker', x: 100, y: 200 },
-        { id: 'router', name: 'Router', type: 'infrastructure', x: 250, y: 200 },
-        { id: 'dc01', name: 'DC01', type: 'compromised', x: 400, y: 150, targetId: dc01.id },
-        { id: 'web01', name: 'WEB01', type: 'in-progress', x: 400, y: 200, targetId: web01.id },
-        { id: 'db01', name: 'DB01', type: 'target', x: 550, y: 250, targetId: db01.id },
-        { id: 'internal-router', name: 'Internal Router', type: 'infrastructure', x: 400, y: 350 }
-      ],
-      links: [
-        { source: 'attacker', target: 'router' },
-        { source: 'router', target: 'dc01' },
-        { source: 'router', target: 'web01' },
-        { source: 'web01', target: 'internal-router' },
-        { source: 'internal-router', target: 'db01' }
-      ]
+      nodes: [],
+      links: []
     };
   }
+
+
 
   // Agents
   async getAgents(): Promise<Agent[]> {
@@ -315,9 +188,9 @@ export class MemStorage implements IStorage {
       id: this.targetId++,
       status: insertTarget.status || "target",
       operatingSystem: insertTarget.operatingSystem || null,
-      openPorts: insertTarget.openPorts || [],
-      vulnerabilities: insertTarget.vulnerabilities || [],
-      flags: insertTarget.flags || [],
+      openPorts: (Array.isArray(insertTarget.openPorts) ? insertTarget.openPorts : (insertTarget.openPorts ? [insertTarget.openPorts] : [])) as { port: number; service: string; }[],
+      vulnerabilities: (Array.isArray(insertTarget.vulnerabilities) ? insertTarget.vulnerabilities : (insertTarget.vulnerabilities ? [insertTarget.vulnerabilities] : [])) as string[],
+      flags: (Array.isArray(insertTarget.flags) ? insertTarget.flags : (insertTarget.flags ? [insertTarget.flags] : [])) as { id: string; type: string; status: string; capturedAt?: string | undefined; }[],
       networkSegment: insertTarget.networkSegment || null,
       assignedAgentId: insertTarget.assignedAgentId || null,
       createdAt: new Date(),
@@ -333,6 +206,9 @@ export class MemStorage implements IStorage {
     const updated: Target = { 
       ...existing, 
       ...target,
+      openPorts: target.openPorts ? (Array.isArray(target.openPorts) ? target.openPorts : [target.openPorts]) as { port: number; service: string; }[] : existing.openPorts,
+      vulnerabilities: target.vulnerabilities ? (Array.isArray(target.vulnerabilities) ? target.vulnerabilities : [target.vulnerabilities]) as string[] : existing.vulnerabilities,
+      flags: target.flags ? (Array.isArray(target.flags) ? target.flags : [target.flags]) as { id: string; type: string; status: string; capturedAt?: string | undefined; }[] : existing.flags,
     };
     this.targets.set(id, updated);
     return updated;
@@ -559,9 +435,16 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createTarget(insertTarget: InsertTarget): Promise<Target> {
+    const targetData = {
+      ...insertTarget,
+      openPorts: insertTarget.openPorts ? (Array.isArray(insertTarget.openPorts) ? insertTarget.openPorts : [insertTarget.openPorts]) as { port: number; service: string; }[] : null,
+      vulnerabilities: insertTarget.vulnerabilities ? (Array.isArray(insertTarget.vulnerabilities) ? insertTarget.vulnerabilities : [insertTarget.vulnerabilities]) as string[] : null,
+      flags: insertTarget.flags ? (Array.isArray(insertTarget.flags) ? insertTarget.flags : [insertTarget.flags]) as { id: string; type: string; status: string; capturedAt?: string | undefined; }[] : null,
+    };
+    
     const [target] = await db
       .insert(targets)
-      .values(insertTarget)
+      .values(targetData)
       .returning();
     return target;
   }
@@ -569,9 +452,9 @@ export class DatabaseStorage implements IStorage {
   async updateTarget(id: number, target: Partial<InsertTarget>): Promise<Target | undefined> {
     const updateData = {
       ...target,
-      openPorts: target.openPorts ? (Array.isArray(target.openPorts) ? target.openPorts : []) : undefined,
-      vulnerabilities: target.vulnerabilities ? (Array.isArray(target.vulnerabilities) ? target.vulnerabilities : []) : undefined,
-      flags: target.flags ? (Array.isArray(target.flags) ? target.flags : []) : undefined
+      openPorts: target.openPorts ? (Array.isArray(target.openPorts) ? target.openPorts : [target.openPorts]) as { port: number; service: string; }[] : undefined,
+      vulnerabilities: target.vulnerabilities ? (Array.isArray(target.vulnerabilities) ? target.vulnerabilities : [target.vulnerabilities]) as string[] : undefined,
+      flags: target.flags ? (Array.isArray(target.flags) ? target.flags : [target.flags]) as { id: string; type: string; status: string; capturedAt?: string | undefined; }[] : undefined
     };
     
     Object.keys(updateData).forEach(key => {

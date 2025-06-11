@@ -40,6 +40,19 @@ class ReconAgent(Agent):
             "domain_enumeration_priority": ["ldap", "smb", "kerberos", "dns"]
         }
     
+    async def configure(self, config: dict):
+        """Configure the agent with specific parameters"""
+        if 'network' in config:
+            self.aptlabs_config["network"] = config['network']
+            self.aptlabs_config["target_network"] = config['network']
+        if 'domain_environment' in config:
+            self.aptlabs_config["domain_environment"] = config['domain_environment']
+        if 'machine_types' in config:
+            self.aptlabs_config["machine_types"] = config['machine_types']
+        
+        self.logger.info(f"ReconAgent configured for network {self.aptlabs_config['network']}")
+        return {"success": True, "configured": True}
+    
     async def enumerate_target(self, target: str, services: List[Dict] = None, is_aptlabs: bool = False) -> Dict:
         """
         Perform comprehensive enumeration of a target.
