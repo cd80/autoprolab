@@ -15,14 +15,14 @@ class Agent:
     Replaces agno.agent.Agent for testing purposes.
     """
     
-    def __init__(self, name: str = None):
+    def __init__(self, name: Optional[str] = None):
         self.name = name or self.__class__.__name__
         self.logger = logging.getLogger(self.name)
         self.state = {}
         self.tools = []
         self.memory = []
         
-    async def execute(self, task: str, context: Dict = None) -> Dict:
+    async def execute(self, task: str, context: Optional[Dict] = None) -> Dict:
         """Execute a task with given context."""
         self.logger.info(f"Executing task: {task}")
         

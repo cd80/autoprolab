@@ -17,18 +17,7 @@ class AptlabsOperationAgent(Agent):
     """
     
     def __init__(self):
-        super().__init__(
-            name="aptlabs_operation_agent",
-            description="Orchestrates complete APTLabs ProLab operations",
-            instructions="""
-            You are the APTLabs operation orchestrator responsible for:
-            1. Coordinating the full attack chain across all agents
-            2. Managing VPN connections through htb-operator
-            3. Tracking operation progress and flag submissions
-            4. Automating flag detection and submission to HTB
-            5. Reporting operation status and maintaining coordination with team_leader
-            """
-        )
+        super().__init__(name="aptlabs_operation_agent")
         
         self.operation_state = {
             "status": "initialized",
@@ -57,7 +46,7 @@ class AptlabsOperationAgent(Agent):
         self.agents = {}
         self.htb_operator_initialized = False
     
-    async def initialize_operation(self) -> Dict:
+    async def initialize_operation(self, config: Dict = None) -> Dict:
         """
         Initialize the complete APTLabs operation.
         
@@ -65,6 +54,14 @@ class AptlabsOperationAgent(Agent):
             Operation initialization result
         """
         print("🚀 Initializing APTLabs ProLab Operation")
+        
+        if config:
+            if 'target_lab' in config:
+                self.aptlabs_config["prolab_name"] = config['target_lab']
+            if 'network_range' in config:
+                self.aptlabs_config["network"] = config['network_range']
+            if 'agents' in config:
+                self.agents = config['agents']
         
         try:
             init_result = await self._initialize_htb_operator()
@@ -304,10 +301,10 @@ class AptlabsOperationAgent(Agent):
             
             self.agents = {
                 "team_leader": TeamLeaderAgent(),
-                "network_scanner": NetworkScannerAgent(),
+                "scanner": NetworkScannerAgent(),
                 "recon": ReconAgent(),
-                "initial_access": InitialAccessAgent(),
-                "htb_aptlabs": HtbAptlabsAgent()
+                "access": InitialAccessAgent(),
+                "htb": HtbAptlabsAgent()
             }
             
             print("✅ All specialized agents initialized")
@@ -323,7 +320,7 @@ class AptlabsOperationAgent(Agent):
         try:
             self.operation_state["current_phase"] = "network_discovery"
             
-            scanner = self.agents["network_scanner"]
+            scanner = self.agents["scanner"]
             discovery_result = await scanner.discover_network(
                 network=self.aptlabs_config["network"]
             )
@@ -413,7 +410,7 @@ class AptlabsOperationAgent(Agent):
         try:
             self.operation_state["current_phase"] = "initial_access"
             
-            initial_access_agent = self.agents["initial_access"]
+            initial_access_agent = self.agents["access"]
             
             access_tasks = []
             targets = self.operation_state["discovered_hosts"]
@@ -539,12 +536,7 @@ class AptlabsOperationAgent(Agent):
             "C:\\Users\\Administrator\\Desktop\\root.txt"
         ]
         
-        mock_flags = [
-            "HTB{mock_user_flag_12345}",
-            "HTB{mock_root_flag_67890}"
-        ]
-        
-        return mock_flags[:1]  # Return 1 mock flag per host
+        return []
     
     async def _comprehensive_flag_search(self, host: str) -> List[str]:
         """Perform comprehensive flag search on compromised host."""
@@ -557,12 +549,7 @@ class AptlabsOperationAgent(Agent):
             f"grep -r 'HTB{{' /root/ 2>/dev/null"
         ]
         
-        mock_flags = [
-            f"HTB{{aptlabs_user_flag_{host.split('.')[-1]}}}",
-            f"HTB{{aptlabs_root_flag_{host.split('.')[-1]}}}"
-        ]
-        
-        return mock_flags[:1]  # Return 1 flag per search
+        return []
     
     async def _submit_flag_to_htb(self, flag: str) -> Dict:
         """Submit captured flag to HTB."""
@@ -643,6 +630,10 @@ class AptlabsOperationAgent(Agent):
             "agents_status": {name: "active" for name in self.agents.keys()},
             "htb_operator_initialized": self.htb_operator_initialized
         }
+    
+    async def get_status(self):
+        """Get current status (alias for get_operation_status)"""
+        return await self.get_operation_status()
     
     async def cleanup_operation(self) -> Dict:
         """Cleanup operation resources."""

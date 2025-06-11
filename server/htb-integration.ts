@@ -347,38 +347,37 @@ export class HtbOperatorService {
   private getMockLabs(): HtbLab[] {
     return [
       {
-        id: "offshore",
-        name: "Offshore",
-        difficulty: "Hard",
-        description: "A challenging Pro Lab focusing on Active Directory exploitation",
+        id: "5",
+        name: "APTLabs",
+        difficulty: "Expert",
+        description: "Advanced Persistent Threat simulation lab with 18 machines",
         status: "available",
         machines: [
           {
-            id: "dc01",
-            name: "DC01",
+            id: "apt-dc01",
+            name: "APT-DC01",
             ip: "10.10.110.100",
             os: "Windows Server 2019",
-            difficulty: "Hard",
+            difficulty: "Expert",
             flags: { user: false, root: false }
           },
           {
-            id: "web01",
-            name: "WEB01",
+            id: "apt-web01",
+            name: "APT-WEB01",
             ip: "10.10.110.101",
+            os: "Linux",
+            difficulty: "Expert",
+            flags: { user: false, root: false }
+          },
+          {
+            id: "apt-db01",
+            name: "APT-DB01",
+            ip: "10.10.110.102",
             os: "Windows Server 2016",
-            difficulty: "Medium",
+            difficulty: "Expert",
             flags: { user: false, root: false }
           }
         ],
-        network: "10.10.110.0/24"
-      },
-      {
-        id: "dante",
-        name: "Dante",
-        difficulty: "Medium",
-        description: "Network pivoting and lateral movement Pro Lab",
-        status: "available",
-        machines: [],
         network: "10.10.110.0/24"
       }
     ];

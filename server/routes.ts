@@ -470,7 +470,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         name: lab.name,
         difficulty: lab.difficulty,
         machines: lab.machines.length,
-        flags: lab.machines.length * 2, // Estimate 2 flags per machine
+        flags: 0,
         description: lab.description,
         estimatedTime: lab.difficulty === "Expert" ? "60-80 hours" : 
                       lab.difficulty === "Hard" ? "40-60 hours" : "30-40 hours",
@@ -502,7 +502,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           name: result.lab.name,
           status: "active" as const,
           capturedFlags: 0,
-          totalFlags: result.lab.machines.length * 2, // Estimate 2 flags per machine
+          totalFlags: 0,
           completionPercentage: 0,
           startedAt: new Date(),
         };
@@ -553,6 +553,151 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Failed to stop HTB lab:", error);
       res.status(500).json({ error: "Failed to stop Pro Lab" });
+    }
+  });
+
+  app.post("/api/agents/deploy-aptlabs", async (req, res) => {
+    try {
+      console.log("Deploying APTLabs agents...");
+      
+      const { spawn } = require('child_process');
+      const pythonProcess = spawn('python', ['-c', `
+import sys
+import os
+sys.path.append('${process.cwd()}/..')
+from aptlabs_agent_config import AptlabsAgentDeployer
+import asyncio
+
+async def deploy():
+    deployer = AptlabsAgentDeployer()
+    result = await deployer.deploy_aptlabs_agents()
+    print(f"DEPLOYMENT_RESULT:{result}")
+    return result
+
+if __name__ == "__main__":
+    result = asyncio.run(deploy())
+`], {
+        cwd: process.cwd(),
+        stdio: ['pipe', 'pipe', 'pipe']
+      });
+
+      let output = '';
+      let error = '';
+
+      pythonProcess.stdout.on('data', (data: Buffer) => {
+        output += data.toString();
+      });
+
+      pythonProcess.stderr.on('data', (data: Buffer) => {
+        error += data.toString();
+      });
+
+      pythonProcess.on('close', (code: number) => {
+        if (code === 0) {
+          const resultMatch = output.match(/DEPLOYMENT_RESULT:(.+)/);
+          let deploymentResult = { success: true, agents_deployed: [] };
+          
+          if (resultMatch) {
+            try {
+              deploymentResult = JSON.parse(resultMatch[1].replace(/'/g, '"'));
+            } catch (e) {
+              console.log("Could not parse deployment result, using default");
+            }
+          }
+
+          res.json({
+            success: true,
+            message: 'APTLabs agents deployed successfully',
+            agents: deploymentResult.agents_deployed || [],
+            deployment_details: deploymentResult
+          });
+        } else {
+          console.error("APTLabs deployment failed:", error);
+          res.status(500).json({
+            success: false,
+            error: error || 'Failed to deploy APTLabs agents'
+          });
+        }
+      });
+
+    } catch (error: any) {
+      console.error("APTLabs deployment error:", error);
+      res.status(500).json({
+        success: false,
+        error: error.message || 'Internal server error during APTLabs deployment'
+      });
+    }
+  });
+
+  app.post("/api/agents/capture-flags-aptlabs", async (req, res) => {
+    try {
+      console.log("Starting APTLabs flag capture operation...");
+      
+      const { spawn } = require('child_process');
+      const pythonProcess = spawn('python', ['-c', `
+import sys
+import os
+sys.path.append('${process.cwd()}/..')
+from aptlabs_agent_config import AptlabsAgentDeployer
+import asyncio
+
+async def capture_flags():
+    deployer = AptlabsAgentDeployer()
+    result = await deployer.execute_flag_capture()
+    print(f"FLAG_CAPTURE_RESULT:{result}")
+    return result
+
+if __name__ == "__main__":
+    result = asyncio.run(capture_flags())
+`], {
+        cwd: process.cwd(),
+        stdio: ['pipe', 'pipe', 'pipe']
+      });
+
+      let output = '';
+      let error = '';
+
+      pythonProcess.stdout.on('data', (data: Buffer) => {
+        output += data.toString();
+      });
+
+      pythonProcess.stderr.on('data', (data: Buffer) => {
+        error += data.toString();
+      });
+
+      pythonProcess.on('close', (code: number) => {
+        if (code === 0) {
+          const resultMatch = output.match(/FLAG_CAPTURE_RESULT:(.+)/);
+          let captureResult = { success: true, flags_captured: 0 };
+          
+          if (resultMatch) {
+            try {
+              captureResult = JSON.parse(resultMatch[1].replace(/'/g, '"'));
+            } catch (e) {
+              console.log("Could not parse capture result, using default");
+            }
+          }
+
+          res.json({
+            success: true,
+            message: 'APTLabs flag capture operation completed',
+            results: captureResult
+          });
+        } else {
+          console.error("APTLabs flag capture failed:", error);
+          res.status(500).json({
+            success: false,
+            error: error || 'Failed to execute flag capture operation'
+          });
+        }
+      });
+
+    } catch (error: any) {
+      console.error("APTLabs flag capture error:", error);
+      res.status(500).json({
+        success: false,
+        error: error.message || 'Internal server error during flag capture'
+      });
     }
   });
 
