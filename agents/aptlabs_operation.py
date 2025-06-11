@@ -558,20 +558,221 @@ class AptlabsOperationAgent(Agent):
             "C:\\Users\\Administrator\\Desktop\\root.txt"
         ]
         
-        return []
+        try:
+            for location in flag_locations:
+                try:
+                    if "*" in location:
+                        base_path = location.split("*")[0].rstrip("/")
+                        filename = location.split("/")[-1]
+                        
+                        cmd = ["find", base_path, "-name", filename, "-type", "f", "2>/dev/null"]
+                        
+                        process = await asyncio.create_subprocess_exec(
+                            *cmd,
+                            stdout=asyncio.subprocess.PIPE,
+                            stderr=asyncio.subprocess.PIPE
+                        )
+                        
+                        stdout, stderr = await process.communicate()
+                        
+                        if process.returncode == 0 and stdout:
+                            found_files = stdout.decode().strip().split('\n')
+                            for file_path in found_files:
+                                if file_path.strip():
+                                    try:
+                                        read_cmd = ["cat", file_path.strip()]
+                                        read_process = await asyncio.create_subprocess_exec(
+                                            *read_cmd,
+                                            stdout=asyncio.subprocess.PIPE,
+                                            stderr=asyncio.subprocess.PIPE
+                                        )
+                                        
+                                        flag_stdout, flag_stderr = await read_process.communicate()
+                                        
+                                        if read_process.returncode == 0:
+                                            flag_content = flag_stdout.decode().strip()
+                                            if flag_content and ("HTB{" in flag_content or len(flag_content) == 32):
+                                                flags_found.append({
+                                                    "flag": flag_content,
+                                                    "location": file_path.strip(),
+                                                    "host": host,
+                                                    "type": "user" if "user.txt" in file_path else "root"
+                                                })
+                                    except Exception:
+                                        continue
+                    else:
+                        cmd = ["cat", location]
+                        
+                        process = await asyncio.create_subprocess_exec(
+                            *cmd,
+                            stdout=asyncio.subprocess.PIPE,
+                            stderr=asyncio.subprocess.PIPE
+                        )
+                        
+                        stdout, stderr = await process.communicate()
+                        
+                        if process.returncode == 0:
+                            flag_content = stdout.decode().strip()
+                            if flag_content and ("HTB{" in flag_content or len(flag_content) == 32):
+                                flags_found.append({
+                                    "flag": flag_content,
+                                    "location": location,
+                                    "host": host,
+                                    "type": "user" if "user.txt" in location else "root"
+                                })
+                
+                except Exception:
+                    continue
+            
+            comprehensive_flags = await self._comprehensive_flag_search(host)
+            flags_found.extend(comprehensive_flags)
+            
+            unique_flags = []
+            seen_flags = set()
+            for flag_info in flags_found:
+                flag_value = flag_info["flag"] if isinstance(flag_info, dict) else flag_info
+                if flag_value not in seen_flags:
+                    seen_flags.add(flag_value)
+                    unique_flags.append(flag_info)
+            
+            return unique_flags
+            
+        except Exception as e:
+            return []
     
     async def _comprehensive_flag_search(self, host: str) -> List[str]:
         """Perform comprehensive flag search on compromised host."""
         flags = []
         
         search_commands = [
-            f"find / -name 'user.txt' 2>/dev/null",
-            f"find / -name 'root.txt' 2>/dev/null",
-            f"grep -r 'HTB{{' /home/ 2>/dev/null",
-            f"grep -r 'HTB{{' /root/ 2>/dev/null"
+            "find / -name 'user.txt' 2>/dev/null",
+            "find / -name 'root.txt' 2>/dev/null",
+            "find / -name 'flag.txt' 2>/dev/null",
+            "find / -name '*.flag' 2>/dev/null",
+            "grep -r 'HTB{' /home/ 2>/dev/null",
+            "grep -r 'HTB{' /root/ 2>/dev/null",
+            "grep -r 'HTB{' /var/ 2>/dev/null",
+            "grep -r 'HTB{' /opt/ 2>/dev/null",
+            "find / -type f -exec grep -l 'HTB{' {} \\; 2>/dev/null",
+            "find / -type f -name '*flag*' 2>/dev/null",
+            "find / -type f -name '*htb*' 2>/dev/null"
         ]
         
-        return []
+        try:
+            for cmd_str in search_commands:
+                try:
+                    cmd = cmd_str.split()
+                    
+                    process = await asyncio.create_subprocess_exec(
+                        *cmd,
+                        stdout=asyncio.subprocess.PIPE,
+                        stderr=asyncio.subprocess.PIPE
+                    )
+                    
+                    stdout, stderr = await process.communicate()
+                    
+                    if process.returncode == 0 and stdout:
+                        output = stdout.decode().strip()
+                        
+                        if "find" in cmd_str and "-name" in cmd_str:
+                            file_paths = output.split('\n')
+                            for file_path in file_paths:
+                                if file_path.strip():
+                                    try:
+                                        read_cmd = ["cat", file_path.strip()]
+                                        read_process = await asyncio.create_subprocess_exec(
+                                            *read_cmd,
+                                            stdout=asyncio.subprocess.PIPE,
+                                            stderr=asyncio.subprocess.PIPE
+                                        )
+                                        
+                                        flag_stdout, flag_stderr = await read_process.communicate()
+                                        
+                                        if read_process.returncode == 0:
+                                            content = flag_stdout.decode().strip()
+                                            
+                                            if content and (
+                                                "HTB{" in content or 
+                                                len(content) == 32 or  # MD5 hash length
+                                                len(content) == 40 or  # SHA1 hash length
+                                                (len(content) >= 20 and len(content) <= 50 and content.isalnum())
+                                            ):
+                                                flags.append({
+                                                    "flag": content,
+                                                    "location": file_path.strip(),
+                                                    "host": host,
+                                                    "search_method": "file_search"
+                                                })
+                                    except Exception:
+                                        continue
+                        
+                        elif "grep" in cmd_str:
+                            lines = output.split('\n')
+                            for line in lines:
+                                if line.strip() and "HTB{" in line:
+                                    parts = line.split(":")
+                                    if len(parts) >= 2:
+                                        file_path = parts[0]
+                                        content = ":".join(parts[1:])
+                                        
+                                        import re
+                                        flag_pattern = r'HTB\{[^}]+\}'
+                                        matches = re.findall(flag_pattern, content)
+                                        
+                                        for match in matches:
+                                            flags.append({
+                                                "flag": match,
+                                                "location": file_path,
+                                                "host": host,
+                                                "search_method": "grep_search",
+                                                "context": content[:100]
+                                            })
+                
+                except Exception:
+                    continue
+            
+            windows_commands = [
+                "dir C:\\Users\\*\\Desktop\\*.txt /s 2>nul",
+                "findstr /s /i \"HTB{\" C:\\Users\\*.txt 2>nul",
+                "findstr /s /i \"HTB{\" C:\\*.txt 2>nul"
+            ]
+            
+            for cmd_str in windows_commands:
+                try:
+                    process = await asyncio.create_subprocess_shell(
+                        cmd_str,
+                        stdout=asyncio.subprocess.PIPE,
+                        stderr=asyncio.subprocess.PIPE
+                    )
+                    
+                    stdout, stderr = await process.communicate()
+                    
+                    if process.returncode == 0 and stdout:
+                        output = stdout.decode().strip()
+                        if "HTB{" in output:
+                            lines = output.split('\n')
+                            for line in lines:
+                                if "HTB{" in line:
+                                    import re
+                                    flag_pattern = r'HTB\{[^}]+\}'
+                                    matches = re.findall(flag_pattern, line)
+                                    
+                                    for match in matches:
+                                        flags.append({
+                                            "flag": match,
+                                            "location": "Windows search result",
+                                            "host": host,
+                                            "search_method": "windows_search",
+                                            "context": line[:100]
+                                        })
+                
+                except Exception:
+                    continue
+            
+            return flags
+            
+        except Exception as e:
+            return []
     
     async def _submit_flag_to_htb(self, flag: str) -> Dict:
         """Submit captured flag to HTB."""
