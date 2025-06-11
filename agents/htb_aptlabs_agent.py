@@ -42,8 +42,7 @@ class HtbAptlabsAgent(Agent):
             "network": "10.10.110.0/24",
             "machines": 18,
             "flags": 20,
-            "difficulty": "Expert",
-            "entry_point": "APT-FW01"
+            "difficulty": "Expert"
         }
     
     async def initialize_aptlabs_operation(self) -> Dict[str, Any]:
@@ -72,7 +71,7 @@ class HtbAptlabsAgent(Agent):
                 "lab_details": lab_details,
                 "next_steps": [
                     "Perform detailed port scanning on discovered hosts",
-                    "Enumerate services on APT-FW01 (entry point)",
+                    "Enumerate services on all discovered hosts in parallel",
                     "Begin vulnerability assessment"
                 ]
             }

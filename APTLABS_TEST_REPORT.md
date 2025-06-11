@@ -43,7 +43,7 @@ The autoprolab system has been successfully developed and partially tested again
 - **Network**: 10.10.110.0/24
 - **Machines**: 18 (mix of FreeBSD and Windows)
 - **Flags**: 20 total
-- **Entry Point**: APT-FW01 (FreeBSD firewall)
+- **Architecture**: Mixed FreeBSD and Windows environment
 - **Difficulty**: Expert level
 
 ### Flag Analysis
@@ -82,7 +82,7 @@ aptlabs_config = {
     "prolab_id": 5,
     "network": "10.10.110.0/24",
     "expected_machines": 18,
-    "entry_point": "10.10.110.1",  # APT-FW01
+    "target_network": "10.10.110.0/24",
     "flag_patterns": [
         r"HTB\{[a-zA-Z0-9_\-]+\}",
         r"user\.txt",
@@ -96,10 +96,10 @@ aptlabs_config = {
 ### Phase 1: Network Discovery
 - Scan 10.10.110.0/24 network
 - Identify live hosts and services
-- Focus on APT-FW01 (10.10.110.1) as entry point
+- Target all discovered hosts in parallel
 
 ### Phase 2: Initial Access
-- Target FreeBSD firewall (APT-FW01)
+- Target all discovered FreeBSD and Windows hosts
 - Look for common FreeBSD vulnerabilities
 - Establish foothold for lateral movement
 
@@ -109,7 +109,7 @@ aptlabs_config = {
 - Identify privilege escalation paths
 
 ### Phase 4: Flag Hunting
-- Search for 25-point flags first (easier targets)
+- Search for flags across all compromised hosts in parallel
 - Focus on common locations: user.txt, root.txt
 - Submit flags using htb-operator
 
@@ -132,7 +132,7 @@ aptlabs_config = {
    - Enhance flag detection algorithms
 
 3. **Testing Strategy**:
-   - Start with APT-FW01 FreeBSD entry point
+   - Target all discovered hosts in parallel
    - Target 25-point flags for quick wins
    - Document successful techniques for reuse
 

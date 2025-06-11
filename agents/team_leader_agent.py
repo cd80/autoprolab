@@ -51,7 +51,7 @@ class TeamLeaderAgent(Agent):
             "total_machines": 18,
             "total_flags": 20,
             "difficulty": "Expert",
-            "entry_point": "APT-FW01",
+            "target_network": "10.10.110.0/24",
             "machine_types": ["FreeBSD", "Windows"],
             "domain_environment": True
         }
@@ -108,13 +108,27 @@ class TeamLeaderAgent(Agent):
         """
         required_agents = await self._analyze_task_requirements(task, context)
         
-        results = {}
+        agent_tasks = []
+        agent_types = []
+        
         for agent_type, agent_task in required_agents.items():
             if agent_type not in self.active_agents:
                 self.active_agents[agent_type] = await self._initialize_agent(agent_type)
             
             agent = self.active_agents[agent_type]
-            results[agent_type] = await agent.execute_task(agent_task, context)
+            agent_tasks.append(agent.execute_task(agent_task, context))
+            agent_types.append(agent_type)
+        
+        task_results = await asyncio.gather(*agent_tasks, return_exceptions=True)
+        
+        results = {}
+        for i, agent_type in enumerate(agent_types):
+            result = task_results[i]
+            if isinstance(result, Exception):
+                print(f"❌ Agent {agent_type} failed: {str(result)}")
+                results[agent_type] = {"error": str(result), "success": False}
+            else:
+                results[agent_type] = result
         
         synthesis = await self._synthesize_results(results, task, context)
         
@@ -181,12 +195,12 @@ class TeamLeaderAgent(Agent):
                     },
                     {
                         "step": 3,
-                        "action": "entry_point_analysis",
-                        "description": "Focus on APT-FW01 (FreeBSD firewall) as entry point",
+                        "action": "infrastructure_analysis",
+                        "description": "Analyze all discovered infrastructure hosts in parallel",
                         "agent": "recon_agent",
                         "tools": ["nmap", "gobuster"],
                         "priority": "high",
-                        "target": "APT-FW01"
+                        "target": "all_discovered_hosts"
                     },
                     {
                         "step": 4,
@@ -209,12 +223,12 @@ class TeamLeaderAgent(Agent):
                 "success_criteria": [
                     "VPN connection established",
                     "All 18 machines discovered",
-                    "APT-FW01 entry point analyzed",
+                    "All infrastructure hosts analyzed",
                     "Domain structure identified",
                     "Initial attack vectors identified"
                 ],
                 "flag_objectives": [
-                    "Capture first flag from entry point",
+                    "Capture first flag from any discovered host",
                     "Identify path to domain compromise",
                     "Document privilege escalation opportunities"
                 ]

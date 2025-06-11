@@ -16,10 +16,9 @@ class NetworkScannerAgent(Agent):
     """
     
     def __init__(self):
-        super().__init__(
-            name="network_scanner",
-            description="Performs network discovery and host enumeration",
-            instructions="""
+        super().__init__(name="network_scanner")
+        self.description = "Performs network discovery and host enumeration"
+        self.instructions = """
             You are the network scanner agent responsible for:
             1. Discovering live hosts in target networks
             2. Performing initial network reconnaissance
@@ -27,7 +26,6 @@ class NetworkScannerAgent(Agent):
             4. Providing target prioritization recommendations
             5. Starting with the default HTB Pro Lab network 10.10.110.0/24
             """
-        )
         
         self.default_network = "10.10.110.0/24"
         self.discovered_hosts = []
@@ -35,7 +33,6 @@ class NetworkScannerAgent(Agent):
         
         self.aptlabs_config = {
             "expected_machines": 18,
-            "entry_point": "APT-FW01",
             "machine_types": ["FreeBSD", "Windows"],
             "domain_environment": True,
             "priority_services": ["ssh", "http", "https", "smb", "rdp", "ldap", "kerberos"],
@@ -84,6 +81,25 @@ class NetworkScannerAgent(Agent):
             "aptlabs_specific": analysis.get("aptlabs_analysis", {}) if is_aptlabs else None
         }
     
+    async def quick_scan_single(self, target: str, is_aptlabs: bool = False) -> Dict:
+        """
+        Perform a quick scan of a single target (wrapper for parallel execution).
+        
+        Args:
+            target: IP address or hostname to scan
+            is_aptlabs: Whether this is an APTLabs target
+            
+        Returns:
+            Quick scan results for the single target
+        """
+        result = await self._quick_host_scan(target)
+        return {
+            "scan_type": "quick_scan_single",
+            "target": target,
+            "result": result,
+            "is_aptlabs": is_aptlabs
+        }
+
     async def quick_scan(self, targets: List[str]) -> Dict:
         """
         Perform a quick scan of specific targets.
@@ -422,18 +438,18 @@ class NetworkScannerAgent(Agent):
         if is_aptlabs:
             analysis["aptlabs_analysis"] = await self._analyze_aptlabs_hosts(hosts, discovery_results)
             
-            entry_point_candidates = [host for host in hosts if host.endswith('.1') or host.endswith('.10')]
+            infrastructure_candidates = [host for host in hosts if host.endswith('.1') or host.endswith('.10')]
             domain_controllers = []
             windows_hosts = []
             freebsd_hosts = []
             
             for host in hosts:
                 last_octet = int(host.split('.')[-1])
-                if last_octet == 1:  # Likely gateway/firewall (APT-FW01)
-                    analysis["priority_targets"].insert(0, host)
-                elif last_octet in [10, 11, 12]:  # Likely domain controllers
+                if last_octet in [10, 11, 12]:  # Likely domain controllers
                     domain_controllers.append(host)
                 elif last_octet < 50:  # Likely infrastructure
+                    analysis["priority_targets"].append(host)
+                else:  # All other hosts including .1 addresses
                     analysis["priority_targets"].append(host)
             
             analysis["priority_targets"].extend(domain_controllers)
@@ -443,7 +459,7 @@ class NetworkScannerAgent(Agent):
             
             analysis["recommendations"].extend([
                 f"APTLabs Discovery: Found {len(hosts)}/{self.aptlabs_config['expected_machines']} expected machines",
-                "Focus on APT-FW01 (likely 10.10.110.1) as entry point",
+                "Target all discovered hosts in parallel for comprehensive coverage",
                 "Identify Windows domain controllers for AD enumeration",
                 "Prepare for mixed FreeBSD/Windows environment",
                 "Plan for domain privilege escalation attacks"
@@ -580,16 +596,16 @@ class NetworkScannerAgent(Agent):
             "discovered_machines": len(hosts),
             "discovery_completeness": (len(hosts) / self.aptlabs_config["expected_machines"]) * 100,
             "missing_machines": max(0, self.aptlabs_config["expected_machines"] - len(hosts)),
-            "entry_point_found": False,
-            "potential_entry_points": []
+            "all_hosts_discovered": hosts,
+            "infrastructure_candidates": []
         }
         
         for host in hosts:
-            if host.endswith('.1'):
-                validation["entry_point_found"] = True
-                validation["potential_entry_points"].append({"ip": host, "type": "gateway", "confidence": "high"})
-            elif host.endswith('.10'):
-                validation["potential_entry_points"].append({"ip": host, "type": "infrastructure", "confidence": "medium"})
+            last_octet = int(host.split('.')[-1])
+            if last_octet == 1:
+                validation["infrastructure_candidates"].append({"ip": host, "type": "gateway", "confidence": "high"})
+            elif last_octet == 10:
+                validation["infrastructure_candidates"].append({"ip": host, "type": "infrastructure", "confidence": "medium"})
         
         return validation
     
@@ -603,7 +619,7 @@ class NetworkScannerAgent(Agent):
                 "servers": [],
                 "unknown": []
             },
-            "entry_point_analysis": {},
+            "infrastructure_analysis": {},
             "domain_environment_indicators": [],
             "next_steps": []
         }
@@ -613,10 +629,10 @@ class NetworkScannerAgent(Agent):
             
             if last_octet == 1:
                 analysis["machine_categorization"]["infrastructure"].append(host)
-                analysis["entry_point_analysis"][host] = {
+                analysis["infrastructure_analysis"][host] = {
                     "type": "firewall_gateway",
-                    "confidence": "high",
-                    "notes": "Likely APT-FW01 FreeBSD firewall"
+                    "confidence": "medium",
+                    "notes": "Potential gateway/firewall host"
                 }
             elif last_octet in range(10, 20):
                 analysis["machine_categorization"]["domain_controllers"].append(host)
@@ -631,10 +647,10 @@ class NetworkScannerAgent(Agent):
             analysis["domain_environment_indicators"].append("UDP domain services detected")
         
         analysis["next_steps"] = [
-            "Perform detailed port scanning on entry point candidates",
+            "Perform detailed port scanning on all discovered hosts in parallel",
             "Enumerate SMB shares on Windows hosts",
             "Check for anonymous LDAP access on domain controllers",
-            "Identify FreeBSD services on infrastructure hosts"
+            "Identify services on all infrastructure hosts"
         ]
         
         return analysis

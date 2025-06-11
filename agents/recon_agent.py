@@ -16,18 +16,7 @@ class ReconAgent(Agent):
     """
     
     def __init__(self):
-        super().__init__(
-            name="recon_agent",
-            description="Performs detailed reconnaissance and service enumeration",
-            instructions="""
-            You are the reconnaissance agent responsible for:
-            1. Detailed service enumeration on discovered targets
-            2. Version detection and banner grabbing
-            3. Directory and subdomain enumeration for web services
-            4. SMB, DNS, and other protocol-specific enumeration
-            5. Gathering detailed target intelligence for exploitation planning
-            """
-        )
+        super().__init__(name="recon_agent")
         
         self.recon_results = {}
         self.enumeration_tools = {
@@ -42,7 +31,7 @@ class ReconAgent(Agent):
         
         self.aptlabs_config = {
             "network": "10.10.110.0/24",
-            "entry_point": "APT-FW01",
+            "target_network": "10.10.110.0/24",
             "domain_environment": True,
             "machine_types": ["FreeBSD", "Windows"],
             "common_ad_ports": [88, 135, 139, 389, 445, 464, 636, 3268, 3269],
@@ -490,9 +479,9 @@ class ReconAgent(Agent):
                 analysis["recommendations"].append("Focus on web services and SSH access")
                 analysis["next_steps"].append("Look for FreeBSD-specific vulnerabilities")
             
-            if aptlabs_data.get("entry_point_analysis"):
-                analysis["recommendations"].append("This appears to be the entry point (APT-FW01)")
-                analysis["next_steps"].append("Prioritize gaining initial access through this machine")
+            if aptlabs_data.get("infrastructure_analysis"):
+                analysis["recommendations"].append("This appears to be an infrastructure host")
+                analysis["next_steps"].append("Analyze this host alongside other discovered targets")
         
         if analysis["attack_vectors"]:
             analysis["risk_assessment"] = "high"
@@ -682,7 +671,7 @@ class ReconAgent(Agent):
         results = {
             "machine_type_detection": {},
             "domain_enumeration": {},
-            "entry_point_analysis": {},
+            "infrastructure_analysis": {},
             "privilege_escalation_vectors": []
         }
         
@@ -693,7 +682,7 @@ class ReconAgent(Agent):
             results["domain_enumeration"] = await self._enumerate_active_directory(target, services)
         
         if target.endswith('.1'):
-            results["entry_point_analysis"] = await self._analyze_entry_point(target, services)
+            results["infrastructure_analysis"] = await self._analyze_infrastructure_host(target, services)
         
         results["privilege_escalation_vectors"] = await self._identify_privesc_vectors(target, services, results["machine_type_detection"])
         
@@ -789,12 +778,12 @@ class ReconAgent(Agent):
         
         return ad_results
     
-    async def _analyze_entry_point(self, target: str, services: List[Dict]) -> Dict:
+    async def _analyze_infrastructure_host(self, target: str, services: List[Dict]) -> Dict:
         """
-        Analyze the entry point machine (likely APT-FW01).
+        Analyze infrastructure hosts (like gateways and firewalls).
         """
         analysis = {
-            "is_entry_point": True,
+            "is_infrastructure": True,
             "machine_role": "firewall_gateway",
             "attack_vectors": [],
             "recommendations": []
