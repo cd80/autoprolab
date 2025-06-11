@@ -50,7 +50,7 @@ class NetworkScannerAgent(Agent):
         self.logger.info(f"NetworkScannerAgent configured for network {self.default_network}")
         return {"success": True, "configured": True}
     
-    async def discover_network(self, network: str = None) -> Dict:
+    async def discover_network(self, network: Optional[str] = None) -> Dict:
         """
         Discover live hosts in the specified network.
         
@@ -227,7 +227,7 @@ class NetworkScannerAgent(Agent):
     async def _arp_scan(self, network: str) -> Dict:
         """Perform ARP scan for local network discovery."""
         try:
-            cmd = ["nmap", "-PR", "-sn", network]
+            cmd = ["nmap", "-PR", "-sn", "--host-timeout", "30s", network]
             
             process = await asyncio.create_subprocess_exec(
                 *cmd,
@@ -235,7 +235,16 @@ class NetworkScannerAgent(Agent):
                 stderr=asyncio.subprocess.PIPE
             )
             
-            stdout, stderr = await process.communicate()
+            try:
+                stdout, stderr = await asyncio.wait_for(process.communicate(), timeout=60.0)
+            except asyncio.TimeoutError:
+                process.kill()
+                await process.wait()
+                return {
+                    "method": "arp_scan",
+                    "error": "ARP scan timed out after 60 seconds",
+                    "status": "failed"
+                }
             
             if process.returncode == 0:
                 hosts = self._parse_nmap_ping_output(stdout.decode())
