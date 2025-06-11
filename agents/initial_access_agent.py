@@ -7,7 +7,7 @@ import subprocess
 import json
 import os
 from typing import Dict, List, Optional, Any
-from agno.agent import Agent
+from .base_agent import Agent
 
 class InitialAccessAgent(Agent):
     """
@@ -16,18 +16,7 @@ class InitialAccessAgent(Agent):
     """
     
     def __init__(self):
-        super().__init__(
-            name="initial_access_agent",
-            description="Gains initial access to target systems through exploitation",
-            instructions="""
-            You are the initial access agent responsible for:
-            1. Exploiting identified vulnerabilities
-            2. Testing for weak credentials and default passwords
-            3. Attempting privilege escalation techniques
-            4. Establishing persistent access when possible
-            5. Documenting successful attack vectors
-            """
-        )
+        super().__init__(name="initial_access_agent")
         
         self.exploit_database = {
             'web': ['sql_injection', 'xss', 'file_upload', 'lfi', 'rfi'],

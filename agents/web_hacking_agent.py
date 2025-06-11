@@ -8,7 +8,7 @@ import json
 import re
 import urllib.parse
 from typing import Dict, List, Optional, Any
-from agno.agent import Agent
+from .base_agent import Agent
 
 class WebHackingAgent(Agent):
     """
@@ -17,20 +17,7 @@ class WebHackingAgent(Agent):
     """
     
     def __init__(self):
-        super().__init__(
-            name="web_hacking_agent",
-            description="Performs comprehensive web application security testing",
-            instructions="""
-            You are the web hacking agent responsible for:
-            1. Comprehensive web application vulnerability assessment
-            2. SQL injection testing and exploitation
-            3. Cross-site scripting (XSS) detection and exploitation
-            4. File upload vulnerability testing
-            5. Directory traversal and local file inclusion testing
-            6. Authentication bypass techniques
-            7. Session management testing
-            """
-        )
+        super().__init__(name="web_hacking_agent")
         
         self.vulnerability_payloads = {
             'sql_injection': [

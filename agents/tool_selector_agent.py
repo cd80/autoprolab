@@ -5,7 +5,7 @@ Tool Selector Agent - Default agent that analyzes requests and selects appropria
 import subprocess
 import json
 from typing import Dict, List, Optional
-from agno.agent import Agent
+from .base_agent import Agent
 
 class ToolSelectorAgent(Agent):
     """
@@ -14,17 +14,7 @@ class ToolSelectorAgent(Agent):
     """
     
     def __init__(self):
-        super().__init__(
-            name="tool_selector_agent",
-            description="Analyzes requests and selects the most appropriate cybersecurity tool",
-            instructions="""
-            You are the tool selector agent. Your role is to:
-            1. Analyze incoming requests from other agents
-            2. Select the most appropriate tool for the task
-            3. Provide detailed usage information by running --help commands
-            4. Handle subcommands recursively to provide complete tool documentation
-            """
-        )
+        super().__init__(name="tool_selector_agent")
         
         self.available_tools = [
             "nmap", "masscan", "rustscan",
